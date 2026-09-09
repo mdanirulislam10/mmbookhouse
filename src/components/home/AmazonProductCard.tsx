@@ -5,6 +5,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CarouselProduct } from '@/types/carousel';
 import { useCart } from '@/hooks/useCartStore';
+import { useBrowsingHistory } from '@/hooks/useBrowsingHistory';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { getAdaptiveImageUrl } from '@/lib/utils/adaptiveImage';
 import { getActiveDealForBook } from '@/lib/data/flashDeals';
 import { AmazonDealBadge } from '@/components/deals/AmazonDealBadge';
 import { AmazonRibbonBadge } from './AmazonRibbonBadge';
@@ -29,6 +32,8 @@ export function AmazonProductCard({
   className = '',
 }: AmazonProductCardProps) {
   const { addItem, triggerBounce } = useCart();
+  const { recordView } = useBrowsingHistory();
+  const { isSlowConnection, saveData } = useNetworkStatus();
   const [isAdded, setIsAdded] = useState(false);
 
   // Audit Point 4: Synchronize live deal pricing and badges with Deal of the Day engine
@@ -57,6 +62,7 @@ export function AmazonProductCard({
       coverImage: product.coverImage,
     });
 
+    recordView(product.bookId, product.category);
     triggerBounce();
     setIsAdded(true);
 
@@ -69,6 +75,7 @@ export function AmazonProductCard({
   const handleOpenQuickView = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    recordView(product.bookId, product.category);
     onQuickView(product);
   };
 
@@ -86,14 +93,14 @@ export function AmazonProductCard({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              onQuickView(product);
+              handleOpenQuickView(e as unknown as React.MouseEvent);
             }
           }}
           aria-label={`${product.titleBn} এর কুইক প্রিভিউ খুলুন`}
           className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center cursor-pointer select-none focus:outline-hidden focus:ring-2 focus:ring-amber-500"
         >
           <Image
-            src={product.coverImage}
+            src={getAdaptiveImageUrl(product.coverImage, { width: 240, isSlowConnection, saveData })}
             alt={product.titleBn}
             fill
             sizes="(max-width: 640px) 180px, (max-width: 1024px) 220px, 240px"
@@ -111,7 +118,7 @@ export function AmazonProductCard({
             </div>
           ) : (
             product.badgeBn && (
-              <div className="absolute top-2 left-0 z-10">
+              <div className="absolute top-0 left-0 z-10">
                 <AmazonRibbonBadge
                   variant={
                     product.badgeBn.includes('বেস্টসেলার') || product.badge === '#1 Best Seller'

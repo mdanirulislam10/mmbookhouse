@@ -2,15 +2,17 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Home, ChevronRight, Search, ArrowUpDown } from 'lucide-react';
+import { Home, ChevronRight, Search, ArrowUpDown, ArrowUpRight } from 'lucide-react';
 import { ViewMode, SortOption } from '@/types/catalog-filter';
 import { ViewModeToggle } from './ViewModeToggle';
 import { AmazonSortDropdown } from './AmazonSortDropdown';
+import { ShareSearchButton } from './ShareSearchButton';
 import { toBengaliNumerals } from '@/lib/utils/currency';
 
 interface ResultSummaryHeaderProps {
   query: string;
   categoryName?: string;
+  categorySlug?: string;
   totalResults: number;
   displayedResults: number;
   sortBy: SortOption;
@@ -23,6 +25,7 @@ interface ResultSummaryHeaderProps {
 export const ResultSummaryHeader: React.FC<ResultSummaryHeaderProps> = ({
   query,
   categoryName,
+  categorySlug,
   totalResults,
   displayedResults,
   sortBy,
@@ -61,9 +64,20 @@ export const ResultSummaryHeader: React.FC<ResultSummaryHeaderProps> = ({
               <span>{isBengali ? 'বই ক্যাটালগ' : 'Book Catalog'}</span>
             </span>
             {categoryName && (
-              <span className="inline-flex items-center text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200/80">
-                {categoryName}
-              </span>
+              categorySlug ? (
+                <Link
+                  href={`/category/${categorySlug}`}
+                  title={isBengali ? 'স্থায়ী বিভাগীয় পেজ দেখুন' : 'View dedicated category page'}
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200/80 transition-colors"
+                >
+                  <span>{categoryName}</span>
+                  <ArrowUpRight className="w-3 h-3 text-blue-600" />
+                </Link>
+              ) : (
+                <span className="inline-flex items-center text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200/80">
+                  {categoryName}
+                </span>
+              )
             )}
           </div>
 
@@ -77,11 +91,17 @@ export const ResultSummaryHeader: React.FC<ResultSummaryHeaderProps> = ({
               <span>{isBengali ? 'সকল উপলব্ধ বইসমূহ' : 'All Available Books'}</span>
             )}
 
-            {/* Amazon Classic Range Counter: "Showing 1-20 of 25 results" */}
+            {/* Amazon Counter (BUG-M6-R3-2 fix): If paginated show range, otherwise show total */}
             <span className="text-gray-500 text-xs sm:text-sm font-semibold">
-              {isBengali
-                ? `(১–${toBengaliNumerals(displayedResults)}টি বই প্রদর্শিত, মোট ${toBengaliNumerals(totalResults)}টির মধ্যে)`
-                : `(Showing 1–${displayedResults} of ${totalResults} results)`}
+              {displayedResults < totalResults ? (
+                isBengali
+                  ? `(১–${toBengaliNumerals(displayedResults)}টি বই প্রদর্শিত, মোট ${toBengaliNumerals(totalResults)}টির মধ্যে)`
+                  : `(Showing 1–${displayedResults} of ${totalResults} results)`
+              ) : (
+                isBengali
+                  ? `(মোট ${toBengaliNumerals(totalResults)}টি ফলাফল)`
+                  : `(${totalResults} results found)`
+              )}
             </span>
           </h1>
 
@@ -92,8 +112,11 @@ export const ResultSummaryHeader: React.FC<ResultSummaryHeaderProps> = ({
           </p>
         </div>
 
-        {/* Right Side: View Mode Toggle & Desktop Sort Menu */}
-        <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+        {/* Right Side: Share, View Mode Toggle & Desktop Sort Menu (Tasks 24 & 33) */}
+        <div className="flex items-center gap-2.5 sm:gap-3 self-end md:self-auto shrink-0">
+          {/* Share Filtered Search Link (Task 33) */}
+          <ShareSearchButton isBengali={isBengali} />
+
           {/* Grid/List View Toggle Button Group */}
           <div className="hidden sm:block">
             <ViewModeToggle

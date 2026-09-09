@@ -33,7 +33,7 @@ BEGIN
         RETURN '';
     END IF;
     -- Remove periods, hyphens, underscores, quotes, commas, colons
-    RETURN LOWER(TRIM(REGEXP_REPLACE(input_text, '[\.\-\_\,\:\;\'\"\/\\(\)\[\]]', '', 'g')));
+    RETURN LOWER(TRIM(REGEXP_REPLACE(input_text, '[.\-_,:;''"/\\()[\]]', '', 'g')));
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 

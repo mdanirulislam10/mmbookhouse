@@ -9,6 +9,7 @@
 -- ------------------------------------------------------------------------------
 -- 1. ENHANCE V_CATALOG_BOOKS WITH SOFT DELETE (deleted_at IS NULL)
 -- ------------------------------------------------------------------------------
+DROP VIEW IF EXISTS v_catalog_books CASCADE;
 CREATE OR REPLACE VIEW v_catalog_books AS
 WITH author_agg AS (
     SELECT 

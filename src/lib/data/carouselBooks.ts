@@ -873,7 +873,7 @@ export const CAROUSEL_COLLECTIONS: CarouselCollection[] = [
     title: 'Popular with Malda Students',
     titleBn: 'মালদার শিক্ষার্থীদের পছন্দের বই',
     subtitleBn: 'মালদা কলেজ, গৌড়বঙ্গ বিশ্ববিদ্যালয় ও স্থানীয় শিক্ষা প্রতিষ্ঠানের সর্বাধিক চাহিদাসম্পন্ন পাঠ্য ও সহায়ক বই',
-    viewAllUrl: '/search?category=all',
+    viewAllUrl: '/malda-student-hub',
     badgeTextBn: '📍 মালদা স্পেশাল কিউরেশন',
     items: MALDA_STUDENT_FAVORITES,
   }

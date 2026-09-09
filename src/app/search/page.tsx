@@ -588,6 +588,56 @@ const SEARCH_CATALOG: BookProduct[] = [
     language: 'bengali',
     keywords: ['tet', 'combo', 'bundle', 'বান্ডল', 'টেট'],
   },
+  {
+    id: 'book-23',
+    bookId: 'book-lucent-gk-english',
+    title: 'Lucent General Knowledge (Comprehensive English Edition 2026)',
+    titleBn: 'লুসেন্ট জেনারেল নলেজ (কম্প্রিহেনসিভ ইংলিশ এডিশন ২০২৬)',
+    author: 'Dr. Binay Karna & Manwendra Mukul',
+    publisher: 'পারুল প্রকাশনী',
+    category: 'competitive-exams',
+    categoryName: 'সরকারি চাকরির পরীক্ষা',
+    subCategory: 'ssc-central',
+    subCategoryName: 'স্টাফ সিলেকশন কমিশন (SSC)',
+    price: 340,
+    mrp: 450,
+    discount: '24%',
+    badge: 'ENGLISH MEDIUM',
+    rating: 4.8,
+    reviewsCount: 420,
+    inStock: true,
+    edition: '2026 Latest Edition',
+    createdAt: '2026-07-30',
+    binding: 'paperback',
+    condition: 'new',
+    language: 'english',
+    keywords: ['lucent', 'gk', 'english', 'ssc', 'general knowledge', 'ইংরেজি'],
+  },
+  {
+    id: 'book-24',
+    bookId: 'book-kiran-rrb-hindi',
+    title: 'Railway RRB ALP & Technician Samanya Adhyayan (Hindi Medium)',
+    titleBn: 'রেলওয়ে রিক্রুটমেন্ট (RRB) টেকনিশিয়ান সাধারণ অধ্যয়ন (হিন্দি মাধ্যম)',
+    author: 'Kiran Expert Research Panel',
+    publisher: 'এম.এম হেরিটেজ প্রেস',
+    category: 'competitive-exams',
+    categoryName: 'সরকারি চাকরির পরীক্ষা',
+    subCategory: 'railway-rrb',
+    subCategoryName: 'রেলওয়ে রিক্রুটমেন্ট (RRB)',
+    price: 295,
+    mrp: 420,
+    discount: '30%',
+    badge: 'HINDI EDITION',
+    rating: 4.6,
+    reviewsCount: 165,
+    inStock: true,
+    edition: '2026 Hindi Edition',
+    createdAt: '2026-06-25',
+    binding: 'paperback',
+    condition: 'new',
+    language: 'hindi',
+    keywords: ['railway', 'rrb', 'hindi', 'kiran', 'হিন্দি', 'রেলওয়ে'],
+  },
 ];
 
 const POPULAR_SUGGESTION_TAGS = [
@@ -795,20 +845,121 @@ function SearchResultsContent() {
 
       return true;
     }).sort((a, b) => {
-      if (sortBy === 'price-asc') return a.price - b.price;
-      if (sortBy === 'price-desc') return b.price - a.price;
-      if (sortBy === 'rating') return b.rating - a.rating;
-      // Moderate Bug 1 fix: newest sorted by publication / createdAt date
+      // Task 26: Smart Price Low-to-High sorting (₹0 & out-of-stock items placed at end; in-stock lowest price first)
+      if (sortBy === 'price-asc') {
+        const aValid = a.inStock && a.price > 0;
+        const bValid = b.inStock && b.price > 0;
+        if (aValid && !bValid) return -1;
+        if (!aValid && bValid) return 1;
+
+        if (aValid && bValid) {
+          if (a.price !== b.price) return a.price - b.price;
+          return (b.rating || 0) - (a.rating || 0);
+        }
+        return a.price - b.price;
+      }
+
+      // Price: High to Low (In-stock prioritized over out-of-stock)
+      if (sortBy === 'price-desc') {
+        if (a.inStock && !b.inStock) return -1;
+        if (!a.inStock && b.inStock) return 1;
+        if (a.price !== b.price) return b.price - a.price;
+        return (b.rating || 0) - (a.rating || 0);
+      }
+
+      // Task 27: Bayesian Weighted Average Rating sorting
+      // Formula: W = (v * R + m * C) / (v + m)
+      // Prevents 1 review of 5.0★ outranking 200 reviews of 4.8★
+      if (sortBy === 'rating') {
+        const PRIOR_MEAN = 4.2;
+        const MIN_REVIEWS = 10;
+        const vA = a.reviewsCount || 0;
+        const vB = b.reviewsCount || 0;
+        const bayesA = ((vA * a.rating) + (MIN_REVIEWS * PRIOR_MEAN)) / (vA + MIN_REVIEWS);
+        const bayesB = ((vB * b.rating) + (MIN_REVIEWS * PRIOR_MEAN)) / (vB + MIN_REVIEWS);
+
+        if (Math.abs(bayesB - bayesA) > 0.001) {
+          return bayesB - bayesA;
+        }
+        if (vB !== vA) return vB - vA;
+        return b.rating - a.rating;
+      }
+
+      // Task 28: Edition & Release Date-based "Newest Arrivals" sorting
+      // Combines 4-digit edition year (e.g. 2026 from "2026-27 CBCS") and createdAt ISO date
       if (sortBy === 'newest') {
+        const getEditionYear = (item: BookProduct) => {
+          const match = item.edition?.match(/20\d{2}/);
+          return match ? parseInt(match[0], 10) : 2020;
+        };
+
+        const yearA = getEditionYear(a);
+        const yearB = getEditionYear(b);
+
+        if (yearA !== yearB) {
+          return yearB - yearA;
+        }
+
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
+        if (dateA !== dateB) {
+          return dateB - dateA;
+        }
+
+        return (b.rating || 0) - (a.rating || 0);
       }
-      if (sortBy === 'bestselling') return (b.reviewsCount || 0) - (a.reviewsCount || 0);
-      // Moderate Bug 2 fix: Multi-factor weighted relevance (Spec Q25):
-      // Score = (TextMatch/Rating × 0.5) + (Bestseller × 0.3) + (InStock × 0.2)
-      const scoreA = (a.rating * 0.5) + ((a.reviewsCount / 500) * 0.3) + (a.inStock ? 0.2 : 0);
-      const scoreB = (b.rating * 0.5) + ((b.reviewsCount / 500) * 0.3) + (b.inStock ? 0.2 : 0);
+
+      // Task 29: Rolling 30-Day "Best Selling" sorting (orders volume + reviews count + badge multiplier)
+      if (sortBy === 'bestselling') {
+        if (a.inStock && !b.inStock) return -1;
+        if (!a.inStock && b.inStock) return 1;
+
+        const getSalesScore = (item: BookProduct) => {
+          let multiplier = 1.0;
+          const badgeUpper = (item.badge || '').toUpperCase();
+          if (badgeUpper.includes('BESTSELLER')) multiplier = 2.0;
+          else if (badgeUpper.includes('POPULAR')) multiplier = 1.5;
+          else if (badgeUpper.includes('UGB') || badgeUpper.includes('SYLLABUS')) multiplier = 1.25;
+
+          return (item.reviewsCount || 0) * multiplier;
+        };
+
+        const scoreA = getSalesScore(a);
+        const scoreB = getSalesScore(b);
+        if (scoreB !== scoreA) {
+          return scoreB - scoreA;
+        }
+        return b.rating - a.rating;
+      }
+
+      // Task 25: Multi-Factor Weighted Relevance (Featured / Relevance)
+      // Score = (Text Relevance × 0.45) + (Bayesian Rating × 0.30) + (Popularity/Sales × 0.15) + (InStock × 0.10)
+      const getTextRelevance = (item: BookProduct) => {
+        if (!qLower) return 1.0;
+        if (item.title.toLowerCase().includes(qLower) || item.titleBn.toLowerCase().includes(qLower)) return 1.0;
+        if (item.author.toLowerCase().includes(qLower)) return 0.85;
+        if (item.publisher.toLowerCase().includes(qLower)) return 0.7;
+        if (item.keywords?.some((k) => k.toLowerCase().includes(qLower))) return 0.6;
+        return 0.4;
+      };
+
+      const relA = getTextRelevance(a);
+      const relB = getTextRelevance(b);
+
+      const vA = a.reviewsCount || 0;
+      const vB = b.reviewsCount || 0;
+      const bayesA = ((vA * a.rating) + (10 * 4.2)) / (vA + 10);
+      const bayesB = ((vB * b.rating) + (10 * 4.2)) / (vB + 10);
+
+      const popA = Math.min(vA / 500, 1.0);
+      const popB = Math.min(vB / 500, 1.0);
+
+      const stockA = a.inStock ? 1.0 : 0.0;
+      const stockB = b.inStock ? 1.0 : 0.0;
+
+      const scoreA = (relA * 0.45) + ((bayesA / 5.0) * 0.30) + (popA * 0.15) + (stockA * 0.10);
+      const scoreB = (relB * 0.45) + ((bayesB / 5.0) * 0.30) + (popB * 0.15) + (stockB * 0.10);
+
       return scoreB - scoreA;
     });
   }, [queryParam, filterState, sortBy]);
@@ -962,6 +1113,12 @@ function SearchResultsContent() {
         label: 'Bilingual (EN+BN)',
         labelBn: 'দ্বিভাষিক',
         count: queryMatchedBooks.filter((b) => b.language === 'bilingual').length,
+      },
+      {
+        id: 'hindi',
+        label: 'Hindi',
+        labelBn: 'হিন্দি',
+        count: queryMatchedBooks.filter((b) => b.language === 'hindi').length,
       },
     ];
 
@@ -1398,6 +1555,58 @@ function SearchResultsContent() {
     triggerDeps: [filterState, sortBy],
   });
 
+  // Task 34: Dynamic Canonical URL & Noindex SEO Rule
+  // Prevents search engine indexing of infinite faceted filter permutations while allowing crawling (noindex, follow)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    // 1. Dynamic Robots Meta Tag
+    let robotsMeta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    if (!robotsMeta) {
+      robotsMeta = document.createElement('meta');
+      robotsMeta.name = 'robots';
+      document.head.appendChild(robotsMeta);
+    }
+    const hasFacets = activeFiltersCount > 0 || sortBy !== 'relevance';
+    robotsMeta.content = hasFacets ? 'noindex, follow' : 'index, follow';
+
+    // 2. Dynamic Canonical Link Tag
+    let canonicalLink = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!canonicalLink) {
+      canonicalLink = document.createElement('link');
+      canonicalLink.rel = 'canonical';
+      document.head.appendChild(canonicalLink);
+    }
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const cleanCanonical =
+      filterState.category && filterState.category !== 'all'
+        ? `${origin}/search?category=${encodeURIComponent(filterState.category)}`
+        : queryParam
+        ? `${origin}/search?q=${encodeURIComponent(queryParam)}`
+        : `${origin}/search`;
+    canonicalLink.href = cleanCanonical;
+  }, [activeFiltersCount, sortBy, filterState.category, queryParam]);
+
+  // Task 35: Map filter category ID to permanent SEO category slug
+  const getCategorySlug = (catId: string): string => {
+    switch (catId) {
+      case 'wbcs-special':
+        return 'wbcs';
+      case 'college-university':
+        return 'college';
+      case 'school-madhyamik-hs':
+        return 'school';
+      case 'competitive-exams':
+        return 'competitive-exams';
+      case 'bengali-literature':
+        return 'literature';
+      case 'primary-tet-slst':
+        return 'competitive-exams/tet';
+      default:
+        return catId;
+    }
+  };
+
   return (
     <>
       <SearchResultsLayout
@@ -1420,6 +1629,7 @@ function SearchResultsContent() {
                 ? facetGroups[0]?.options.find((o) => o.id === filterState.category)?.labelBn || filterState.category
                 : undefined
             }
+            categorySlug={filterState.category !== 'all' ? getCategorySlug(filterState.category) : undefined}
             totalResults={filteredBooks.length}
             displayedResults={filteredBooks.length}
             sortBy={sortBy}

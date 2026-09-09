@@ -413,6 +413,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ------------------------------------------------------------------------------
 -- 5. [HIGH 5] UPDATE V_CATALOG_BOOKS VIEW (Author names, Cover image & Stock)
 -- ------------------------------------------------------------------------------
+DROP VIEW IF EXISTS v_catalog_books CASCADE;
 CREATE OR REPLACE VIEW v_catalog_books AS
 WITH author_agg AS (
     SELECT 

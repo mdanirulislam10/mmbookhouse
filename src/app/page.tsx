@@ -9,13 +9,19 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useCart, SAMPLE_BOOKS } from '@/hooks/useCartStore';
 import { useWishlist } from '@/hooks/useWishlistStore';
+import { useFestiveTheme } from '@/hooks/useFestiveTheme';
 import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
 import { BulkOrderModal } from '@/components/header/BulkOrderModal';
 import { PincodeModal } from '@/components/header/PincodeModal';
 import { OfflineStatusIndicator } from '@/components/header/OfflineStatusIndicator';
-import { useFestiveTheme, FESTIVE_THEMES, FestiveThemeMode } from '@/hooks/useFestiveTheme';
 import { HeroBannerSlider } from '@/components/banner';
-import { FloatingCardGrid, ProductCarousel } from '@/components/home';
+import {
+  FloatingCardGrid,
+  ProductCarousel,
+  CampaignBanner,
+  SuperSaverComboWidget,
+  PersonalizedRecommendations
+} from '@/components/home';
 import { DealOfTheDayWidget } from '@/components/deals';
 import { CAROUSEL_COLLECTIONS } from '@/lib/data/carouselBooks';
 import {
@@ -54,7 +60,9 @@ import {
   Check,
   PhoneCall,
   Award,
-  ShoppingBag
+  ShoppingBag,
+  BarChart3,
+  Gift
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -118,17 +126,25 @@ export default function HomePage() {
         <HeroBannerSlider />
       </div>
 
+      {/* Module 4 Part 9: Seasonal Campaign Announcement Banner (Task 43) */}
+      <CampaignBanner className="mb-4 sm:mb-6" />
+
       {/* Module 4 Part 3: Amazon Signature Floating Quad Card Grid Overlap (Tasks 11-15) */}
       <FloatingCardGrid className="mb-6 sm:mb-8" />
 
       {/* Module 4 Part 5: Amazon "Deal of the Day" & Flash Deals Engine (Tasks 21-25) */}
       <DealOfTheDayWidget className="mb-6 sm:mb-8" />
 
-      {/* Module 4 Part 7 & 8: Horizontal Product Row Carousels (Tasks 31 to 40) */}
-      <div className="space-y-6 sm:space-y-8 mb-6 sm:mb-8">
+      {/* Module 4 Part 9: "Super Saver Combos" Multi-Book Bundle Promotion Widget (Task 42) */}
+      <SuperSaverComboWidget className="mb-6 sm:mb-8" />
+
+      {/* Module 4 Part 7, 8 & 9: Horizontal Product Row Carousels & Personalization (Tasks 31 to 45) */}
+      <div className="space-y-4 sm:space-y-5 mb-5 sm:mb-6">
         <ProductCarousel collection={CAROUSEL_COLLECTIONS[0]} />
         <ProductCarousel collection={CAROUSEL_COLLECTIONS[1]} />
         <ProductCarousel collection={CAROUSEL_COLLECTIONS[2]} />
+        {/* Module 4 Part 9: Browsing History Dependent Personalized Recommendations Row (Task 41) */}
+        <PersonalizedRecommendations />
       </div>
 
       {/* Module 4: Part 3 Verification & Quad Widget Architecture Highlights (Tasks 11 to 15) */}
@@ -696,6 +712,101 @@ export default function HomePage() {
             <h4 className="text-xs font-bold text-gray-900">নেটিভ টাচ মোমেন্টাম</h4>
             <p className="text-[11px] text-gray-600 leading-tight">
               `-webkit-overflow-scrolling: touch` ও `touch-pan-x` দ্বারা আইওএস ও অ্যান্ড্রয়েডে সাবলীল ফ্লিক স্ক্রোলিং।
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Module 4: Part 9 Verification & Personalization, Bundle Promotions & Analytics (Tasks 41 to 45) */}
+      <section className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 gap-2">
+          <div className="flex items-center gap-2 text-gray-900 font-extrabold text-base">
+            <BarChart3 className="w-5 h-5 text-rose-600" />
+            <span>মডিউল ৪ (ভাগ ৯: কাজ ৪১ থেকে ৪৫) পার্সোনালাইজেশন, বান্ডেল প্রমোশন ও অ্যানালিটিক্স মেট্রিক্স</span>
+          </div>
+          <span className="text-xs font-bold text-rose-900 bg-rose-100 px-3 py-1 rounded-full w-fit">
+            ৫/৫ কাজ বাস্তবায়িত ও সক্রিয়
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Task 41 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-rose-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৪১
+              </span>
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                Personalized
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">ব্রাউজিং হিস্ট্রি রিকমেন্ডেশন</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              `useBrowsingHistory` দ্বারা কাস্টমারের দেখা বইয়ের ক্যাটাগরি ও হিস্ট্রি ট্র্যাকিং এবং ট্রেন্ডিং স্মার্ট ফলব্যাক রো।
+            </p>
+          </div>
+
+          {/* Task 42 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-rose-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৪২
+              </span>
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                Combo Deals
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">সুপার সেভার কম্বো উইজেট</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              `SuperSaverComboWidget`, ৩৮% পর্যন্ত অতিরিক্ত ছাড়, '+' কানেক্টর এবং ১-ক্লিকে সম্পূর্ণ বান্ডেল কার্ট অ্যাকশন।
+            </p>
+          </div>
+
+          {/* Task 43 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-rose-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৪৩
+              </span>
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                Campaign Banner
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">সিজনাল ক্যাম্পেইন কন্ট্রোলার</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              `useCampaignController` দ্বারা ক্যালেন্ডার উইন্ডো অনুযায়ী মালদা বইমেলা ও উৎসবের ব্যানার অটো-শিডিউলিং।
+            </p>
+          </div>
+
+          {/* Task 44 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-rose-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৪৪
+              </span>
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                Adaptive Image
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">নেটওয়ার্ক-অ্যাওয়ার ইমেজ</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              `useNetworkStatus` দ্বারা 2G/3G/Save-Data-তে হালকা কম্প্রেসড ইমেজ এবং 4G/WiFi-তে হাই-কোয়ালিটি ডেলিভারি।
+            </p>
+          </div>
+
+          {/* Task 45 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-rose-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৪৫
+              </span>
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                CTR Analytics
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">ব্যানার CTR ও অ্যানালিটিক্স</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              `useBannerAnalytics` দ্বারা প্রতিটি ব্যানার ও ডিল উইজেটের ইম্প্রেশন, ক্লিক এবং CTR পারসিস্টেন্ট ট্র্যাকিং।
             </p>
           </div>
         </div>

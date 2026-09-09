@@ -136,7 +136,7 @@ export function ProductCarousel({ collection, className = '' }: ProductCarouselP
         {/* Task 31, 38 & 40: Horizontal Product Row Container with Touch Momentum & Scroll Snap */}
         <div
           ref={containerRef}
-          className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory scroll-px-3 sm:scroll-px-4 touch-scroll-momentum touch-pan-x overscroll-x-contain py-2 px-1 focus:outline-hidden"
+          className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory scroll-pl-3 sm:scroll-pl-4 touch-scroll-momentum touch-pan-x overscroll-x-contain py-2 px-1 focus:outline-hidden"
           tabIndex={0}
           role="region"
           aria-label={`${collection.titleBn} বইয়ের তালিকা`}
@@ -145,7 +145,7 @@ export function ProductCarousel({ collection, className = '' }: ProductCarouselP
           {collection.items.slice(0, 20).map((product) => (
             <div
               key={product.id}
-              className="w-[185px] sm:w-[210px] md:w-[230px] flex-shrink-0 snap-center sm:snap-start"
+              className="w-[155px] sm:w-[195px] md:w-[220px] flex-shrink-0 snap-start"
             >
               <AmazonProductCard
                 product={product}
@@ -156,10 +156,10 @@ export function ProductCarousel({ collection, className = '' }: ProductCarouselP
           ))}
 
           {/* Task 37: End of row "View All" Action Card */}
-          <div className="w-[150px] sm:w-[170px] flex-shrink-0 snap-center sm:snap-start flex items-center justify-center">
+          <div className="w-[140px] sm:w-[165px] flex-shrink-0 snap-start self-stretch h-auto flex items-stretch">
             <Link
               href={collection.viewAllUrl}
-              className="w-full h-full min-h-[300px] rounded-xl border-2 border-dashed border-gray-200 hover:border-amber-400 bg-gray-50 hover:bg-amber-50/50 p-4 flex flex-col items-center justify-center gap-2 text-center transition-colors group"
+              className="w-full h-full min-h-full rounded-xl border-2 border-dashed border-gray-200 hover:border-amber-400 bg-gray-50 hover:bg-amber-50/50 p-4 flex flex-col items-center justify-center gap-2 text-center transition-colors group"
             >
               <div className="w-10 h-10 rounded-full bg-white shadow-xs border border-gray-200 group-hover:border-amber-400 flex items-center justify-center text-gray-700 group-hover:text-amber-700 transition-colors">
                 <ArrowRight className="w-5 h-5" />

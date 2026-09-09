@@ -41,6 +41,9 @@ $$ LANGUAGE plpgsql;
 --   2. [P0 BUG] validate_and_apply_coupon() Parameter Order & JSONB Extraction
 --   3. [FINANCIAL BUG] Exact Loyalty Points Deduction (-v_loyalty_discount::INT)
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS place_order_from_cart(UUID, UUID, VARCHAR, VARCHAR, TEXT);
+DROP FUNCTION IF EXISTS place_order_from_cart(UUID, UUID, VARCHAR, VARCHAR, TEXT, INT);
+
 CREATE OR REPLACE FUNCTION place_order_from_cart(
     p_user_id UUID,
     p_address_id UUID,
@@ -308,7 +311,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION place_order_from_cart IS 'Atomically places an order from customer cart, deducts inventory stock, logs stock adjustments, extracts coupon discount from JSONB, and deducts actual loyalty discount';
+COMMENT ON FUNCTION place_order_from_cart(UUID, UUID, VARCHAR, VARCHAR, TEXT, INT) IS 'Atomically places an order from customer cart, deducts inventory stock, logs stock adjustments, extracts coupon discount from JSONB, and deducts actual loyalty discount';
 
 -- ------------------------------------------------------------------------------
 -- TASK 4: [SECURITY HOLE] ORDERS TABLE RLS LOCKDOWN

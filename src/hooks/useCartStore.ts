@@ -9,6 +9,7 @@ interface CartStore {
   isAnimating: boolean;
   lastAddedItem: CartItem | null;
   addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
+  addItems: (items: (Omit<CartItem, 'quantity'> & { quantity?: number })[]) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -108,6 +109,55 @@ export const useCartStore = create<CartStore>()(
         notifyTabsOfCartChange();
       },
 
+      addItems: (newItems) => {
+        let currentItems = [...get().items];
+        let lastItem: CartItem | null = null;
+
+        for (const item of newItems) {
+          const existingIndex = currentItems.findIndex((i) => i.id === item.id || i.bookId === item.bookId);
+          const addedQty = item.quantity || 1;
+
+          if (existingIndex > -1) {
+            const existingItem = currentItems[existingIndex];
+            const maxAllowed = existingItem.maxQuantity || item.maxQuantity;
+            const newQuantity = maxAllowed
+              ? Math.min(existingItem.quantity + addedQty, maxAllowed)
+              : existingItem.quantity + addedQty;
+
+            currentItems = currentItems.map((i, index) =>
+              index === existingIndex
+                ? { ...i, quantity: newQuantity, maxQuantity: maxAllowed }
+                : i
+            );
+          } else {
+            const maxAllowed = item.maxQuantity;
+            const initialQty = maxAllowed ? Math.min(addedQty, maxAllowed) : addedQty;
+            currentItems.push({
+              ...item,
+              quantity: initialQty,
+              maxQuantity: maxAllowed,
+            });
+          }
+
+          lastItem = {
+            ...item,
+            quantity: addedQty,
+          };
+        }
+
+        set({
+          items: currentItems,
+          isAnimating: true,
+          lastAddedItem: lastItem,
+        });
+
+        setTimeout(() => {
+          set({ isAnimating: false });
+        }, 800);
+
+        notifyTabsOfCartChange();
+      },
+
       removeItem: (id) => {
         set((state) => ({
           items: state.items.filter((i) => i.id !== id),
@@ -186,6 +236,7 @@ export const useCartAnimation = () =>
 export const useCartActions = () =>
   useCartStore((state) => ({
     addItem: state.addItem,
+    addItems: state.addItems,
     removeItem: state.removeItem,
     updateQuantity: state.updateQuantity,
     clearCart: state.clearCart,
@@ -200,6 +251,7 @@ export function useCart() {
   const isAnimating = useCartStore((state) => state.isAnimating);
   const lastAddedItem = useCartStore((state) => state.lastAddedItem);
   const addItem = useCartStore((state) => state.addItem);
+  const addItems = useCartStore((state) => state.addItems);
   const removeItem = useCartStore((state) => state.removeItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -219,6 +271,7 @@ export function useCart() {
     isAnimating,
     lastAddedItem,
     addItem,
+    addItems,
     removeItem,
     updateQuantity,
     clearCart,

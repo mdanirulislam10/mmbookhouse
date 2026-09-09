@@ -324,6 +324,19 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ------------------------------------------------------------------------------
+-- HELPER: IS_ADMIN FUNCTION
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid() AND role = 'admin'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- ------------------------------------------------------------------------------
 -- RLS POLICIES FOR PART 10 TABLES
 -- ------------------------------------------------------------------------------
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;

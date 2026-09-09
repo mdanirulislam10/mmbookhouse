@@ -3,11 +3,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Flame, ArrowRight, ShieldCheck, Zap, Sparkles, Gift, Clock, CheckCircle2 } from 'lucide-react';
+import { DealType } from '@/types/deal';
 import { DealCard } from './DealCard';
 import { FLASH_DEALS, getDealStatus } from '@/lib/data/flashDeals';
-import { DealType } from '@/types/deal';
 import { toBengaliNumerals } from '@/lib/utils/currency';
 import { isClockSynced } from '@/lib/utils/serverTime';
+import { useBannerAnalytics } from '@/hooks/useBannerAnalytics';
 
 interface DealOfTheDayWidgetProps {
   className?: string;
@@ -25,6 +26,11 @@ type TabType = 'all' | DealType | 'upcoming';
  */
 export const DealOfTheDayWidget: React.FC<DealOfTheDayWidgetProps> = ({ className = '' }) => {
   const [activeTab, setActiveTab] = useState<TabType>('all');
+  const { trackImpression } = useBannerAnalytics();
+
+  React.useEffect(() => {
+    trackImpression('deal-of-the-day-widget', 'Deal of the Day Flash Widget');
+  }, [trackImpression]);
 
   const filteredDeals = FLASH_DEALS.filter((deal) => {
     if (activeTab === 'all') {

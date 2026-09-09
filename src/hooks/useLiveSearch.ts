@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useDebounce } from './useDebounce';
 import {
   LiveSearchResultItem,
@@ -8,11 +8,67 @@ import {
   LiveSearchResponse,
   SearchHistoryItem,
 } from '@/types/search';
-import { POPULAR_MALDA_SEARCHES } from '@/lib/data/booksCatalog';
+import { POPULAR_MALDA_SEARCHES, BOOKS_CATALOG } from '@/lib/data/booksCatalog';
 
 export const MIN_SEARCH_CHARS = 2;
 export const SEARCH_HISTORY_STORAGE_KEY = 'mm_book_search_history_v1';
-const MAX_HISTORY_ITEMS = 8;
+export const MAX_HISTORY_ITEMS = 10;
+
+// Task 40: Incognito / Private Mode Safe Storage Engine
+const memoryStorage: Record<string, string> = {};
+let isLocalStorageSupported: boolean | null = null;
+
+function checkStorageSupport(): boolean {
+  if (isLocalStorageSupported !== null) return isLocalStorageSupported;
+  if (typeof window === 'undefined') {
+    isLocalStorageSupported = false;
+    return false;
+  }
+  try {
+    const testKey = '__mm_storage_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+    isLocalStorageSupported = true;
+    return true;
+  } catch {
+    isLocalStorageSupported = false;
+    return false;
+  }
+}
+
+function safeGetItem(key: string): string | null {
+  if (checkStorageSupport()) {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return memoryStorage[key] || null;
+    }
+  }
+  return memoryStorage[key] || null;
+}
+
+function safeSetItem(key: string, value: string): void {
+  if (checkStorageSupport()) {
+    try {
+      window.localStorage.setItem(key, value);
+      return;
+    } catch {
+      // Fall through to memory
+    }
+  }
+  memoryStorage[key] = value;
+}
+
+function safeRemoveItem(key: string): void {
+  if (checkStorageSupport()) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Ignore
+    }
+  }
+  delete memoryStorage[key];
+}
 
 interface UseLiveSearchOptions {
   category?: string;
@@ -21,12 +77,14 @@ interface UseLiveSearchOptions {
 }
 
 /**
- * Module 5 (Division 1, Tasks 1–5): Live Search Hook
+ * Module 5 (Division 1, Tasks 1–5 & Division 8, Tasks 36, 40): Live Search Hook
  *
  * - Task 1: Minimum character threshold check (>= 2 chars)
  * - Task 2: 300ms Debouncing with useDebounce
  * - Task 3: AbortController race-condition cancellation engine
  * - Task 4: Instant reset and clear helper with history support
+ * - Task 36: Personalization engine based on past category affinity
+ * - Task 40: Incognito / Private browsing mode safety with in-memory storage fallback
  */
 export function useLiveSearch(options: UseLiveSearchOptions = {}) {
   const {
@@ -48,25 +106,57 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
   // Local storage recent search history
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
 
+  // Task 36: User past category affinity & personalized recommendation engine
+  const preferredCategory = useMemo(() => {
+    const categoryCounts: Record<string, number> = {};
+    searchHistory.forEach((item) => {
+      if (item.category && item.category !== 'all') {
+        categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
+      }
+    });
+
+    let bestCategory: string | null = null;
+    let maxCount = 0;
+    for (const [cat, count] of Object.entries(categoryCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        bestCategory = cat;
+      }
+    }
+    return bestCategory;
+  }, [searchHistory]);
+
+  const personalizedRecommendations = useMemo(() => {
+    if (preferredCategory) {
+      const matching = BOOKS_CATALOG.filter((b) => b.category === preferredCategory);
+      if (matching.length >= 2) return matching.slice(0, 2);
+      if (matching.length === 1) {
+        const other = BOOKS_CATALOG.find((b) => b.id !== matching[0].id);
+        return other ? [matching[0], other] : matching;
+      }
+    }
+    return BOOKS_CATALOG.slice(0, 2);
+  }, [preferredCategory]);
+
   // Task 2: Debounced query (delays 300ms)
   const debouncedQuery = useDebounce(query.trim(), debounceDelay);
 
   // Task 3: In-flight AbortController reference
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load search history from localStorage on mount
+  // Task 40: Load search history safely on mount (with incognito fallback)
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(SEARCH_HISTORY_STORAGE_KEY);
+      const stored = safeGetItem(SEARCH_HISTORY_STORAGE_KEY);
       if (stored) {
         setSearchHistory(JSON.parse(stored));
       }
     } catch {
-      // Ignore localStorage errors (e.g. private mode)
+      // Handled safely
     }
   }, []);
 
-  // Save query to search history
+  // Save query to search history (Task 31 & Task 40 safe storage)
   const saveSearchTerm = useCallback((term: string, cat?: string) => {
     const trimmed = term.trim();
     if (!trimmed || trimmed.length < 2) return;
@@ -83,36 +173,24 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
         ...filtered,
       ].slice(0, MAX_HISTORY_ITEMS);
 
-      try {
-        localStorage.setItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore localStorage write error
-      }
+      safeSetItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
 
-  // Delete individual history item
+  // Delete individual history item (Task 33 & Task 40 safe storage)
   const removeHistoryItem = useCallback((id: string) => {
     setSearchHistory((prev) => {
       const updated = prev.filter((item) => item.id !== id);
-      try {
-        localStorage.setItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore
-      }
+      safeSetItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
 
-  // Clear all search history
+  // Clear all search history (Task 34 & Task 40 safe storage)
   const clearAllHistory = useCallback(() => {
     setSearchHistory([]);
-    try {
-      localStorage.removeItem(SEARCH_HISTORY_STORAGE_KEY);
-    } catch {
-      // Ignore
-    }
+    safeRemoveItem(SEARCH_HISTORY_STORAGE_KEY);
   }, []);
 
   // Task 4: Instant Clear & State Reset
@@ -229,6 +307,8 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
     saveSearchTerm,
     removeHistoryItem,
     clearAllHistory,
+    preferredCategory,
+    personalizedRecommendations,
     isThresholdMet: query.trim().length >= minChars,
     minChars,
   };

@@ -5,6 +5,7 @@ import { HeroBanner, BannerSliderConfig } from '@/types/banner';
 import { DEFAULT_HERO_BANNERS } from '@/lib/data/heroBanners';
 import { useHeroBanner } from '@/hooks/useHeroBanner';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useBannerAnalytics } from '@/hooks/useBannerAnalytics';
 import { toBengaliNumerals } from '@/lib/utils/currency';
 import { HeroBannerSlide } from './HeroBannerSlide';
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
@@ -19,6 +20,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
   config,
 }) => {
   const { isBengali } = useLanguage();
+  const { trackImpression, trackClick } = useBannerAnalytics();
   const {
     currentIndex,
     totalSlides,
@@ -40,6 +42,18 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
     handleTouchEnd,
     handleTouchCancel,
   } = useHeroBanner({ banners, config });
+
+  // Task 45: Track Banner Impression on Slide Change
+  const currentBanner = banners[currentIndex];
+  React.useEffect(() => {
+    if (currentBanner) {
+      trackImpression(currentBanner.id, currentBanner.titleBn || currentBanner.title);
+    }
+  }, [currentBanner, trackImpression]);
+
+  const handleBannerClick = (banner: HeroBanner) => {
+    trackClick(banner.id, banner.titleBn || banner.title);
+  };
 
   // Issue 4 Fix: Keyboard Navigation (ArrowLeft / ArrowRight) for WCAG 2.1 AA
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -86,6 +100,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
               banner={banner}
               isActive={index === currentIndex}
               isPriority={index === 0}
+              onBannerClick={handleBannerClick}
             />
           ))}
         </div>

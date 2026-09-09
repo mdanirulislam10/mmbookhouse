@@ -14,6 +14,8 @@ import {
   Sparkles,
   User,
   Building2,
+  MessageCircle,
+  SearchX,
 } from 'lucide-react';
 import { CategoryDropdown } from './CategoryDropdown';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -51,38 +53,42 @@ interface SearchBarProps {
 function highlightMatch(text: string, searchQuery: string): React.ReactNode {
   if (!text || !searchQuery || searchQuery.trim().length < 2) return text;
 
-  const rawTokens = searchQuery
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t.length >= 2);
+  try {
+    const rawTokens = searchQuery
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length >= 2);
 
-  if (rawTokens.length === 0) return text;
+    if (rawTokens.length === 0) return text;
 
-  // Escape special characters for regex
-  const escapedTokens = rawTokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const regex = new RegExp(`(${escapedTokens.join('|')})`, 'gi');
+    // Escape special characters for regex (Unicode and special characters safe)
+    const escapedTokens = rawTokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regex = new RegExp(`(${escapedTokens.join('|')})`, 'gi');
 
-  const parts = text.split(regex);
-  if (parts.length <= 1) return text;
+    const parts = text.split(regex);
+    if (parts.length <= 1) return text;
 
-  return (
-    <>
-      {parts.map((part, i) => {
-        const isMatch = rawTokens.some((token) => part.toLowerCase() === token);
-        return isMatch ? (
-          <mark
-            key={i}
-            className="bg-amber-100 text-amber-950 font-bold px-0.5 rounded-xs not-italic"
-          >
-            {part}
-          </mark>
-        ) : (
-          part
-        );
-      })}
-    </>
-  );
+    return (
+      <>
+        {parts.map((part, i) => {
+          const isMatch = rawTokens.some((token) => part.toLowerCase() === token);
+          return isMatch ? (
+            <mark
+              key={i}
+              className="bg-amber-100 text-amber-950 font-bold px-0.5 rounded-xs not-italic"
+            >
+              {part}
+            </mark>
+          ) : (
+            part
+          );
+        })}
+      </>
+    );
+  } catch {
+    return text;
+  }
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -124,6 +130,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     removeHistoryItem,
     clearAllHistory,
     isThresholdMet,
+    preferredCategory,
+    personalizedRecommendations,
   } = useLiveSearch();
 
   // Execute Search Helper (Task 7)
@@ -209,23 +217,25 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const displayKeywords = useMemo(() => keywords.slice(0, 4), [keywords]);
   const displayBooks = useMemo(() => books.slice(0, 4), [books]);
   const displayCategories = useMemo(() => categories.slice(0, 2), [categories]);
+  // Task 32: Zero-input focus state rendering top 5 recent searches
+  const displayHistory = useMemo(() => searchHistory.slice(0, 5), [searchHistory]);
 
-  // Compute all navigable items for arrow key navigation (Task 6 & Task 25)
+  // Compute all navigable items for arrow key navigation (Task 6 & Task 25 & Task 32)
   const allNavigableItems = useMemo(() => {
     if (isThresholdMet) {
-      const items: { type: 'keyword' | 'book' | 'category'; data: any }[] = [];
+      const items: { type: 'keyword' | 'book' | 'category'; data: any; category?: string }[] = [];
       displayKeywords.forEach((kw) => items.push({ type: 'keyword', data: kw }));
-      displayBooks.forEach((b) => items.push({ type: 'book', data: b }));
+      displayBooks.forEach((b) => items.push({ type: 'book', data: b, category: b.category }));
       displayCategories.forEach((c) => items.push({ type: 'category', data: c }));
       return items;
     } else if (query.trim().length === 0) {
-      const items: { type: 'history' | 'trending'; data: any }[] = [];
-      searchHistory.forEach((h) => items.push({ type: 'history', data: h.query }));
-      trendingSearches.forEach((t) => items.push({ type: 'trending', data: isBengali ? t.queryBn : t.query }));
+      const items: { type: 'history' | 'trending'; data: any; category?: string }[] = [];
+      displayHistory.forEach((h) => items.push({ type: 'history', data: h.query, category: h.category }));
+      trendingSearches.forEach((t) => items.push({ type: 'trending', data: isBengali ? t.queryBn : t.query, category: t.category }));
       return items;
     }
     return [];
-  }, [isThresholdMet, displayKeywords, displayBooks, displayCategories, query, searchHistory, trendingSearches, isBengali]);
+  }, [isThresholdMet, displayKeywords, displayBooks, displayCategories, query, displayHistory, trendingSearches, isBengali]);
 
   // Task 6: Auto-scroll the active highlighted item smoothly into view
   useEffect(() => {
@@ -279,7 +289,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         } else if (selected.type === 'keyword' || selected.type === 'history' || selected.type === 'trending') {
           const term = String(selected.data);
           setQuery(term);
-          executeSearch(term, selectedCategory);
+          executeSearch(term, selected.category || selectedCategory);
         } else if (selected.type === 'category') {
           const cat = selected.data;
           setIsDropdownOpen(false);
@@ -514,8 +524,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             {/* STATE B: User is focused with empty query -> Show Search History & Trending Searches */}
             {query.trim().length === 0 && (
               <div className="divide-y divide-gray-100 text-xs">
-                {/* Recent Search History (Task 31-34) */}
-                {searchHistory.length > 0 && (
+                {/* Recent Search History (Task 31-34: Max 5 items displayed) */}
+                {displayHistory.length > 0 && (
                   <div className="py-1">
                     <div className="flex items-center justify-between px-3 py-1.5 text-gray-400 font-semibold uppercase tracking-wider text-[10px]">
                       <span className="flex items-center gap-1.5">
@@ -529,13 +539,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                           e.stopPropagation();
                           clearAllHistory();
                         }}
-                        className="hover:text-red-600 transition-colors text-[10px] lowercase cursor-pointer"
+                        className="hover:text-red-600 transition-colors text-[10px] lowercase cursor-pointer font-medium"
                       >
-                        {isBengali ? 'মুছুন' : 'Clear all'}
+                        {isBengali ? 'সব মুছুন' : 'Clear all'}
                       </button>
                     </div>
                     <ul>
-                      {searchHistory.map((item, idx) => {
+                      {displayHistory.map((item, idx) => {
                         const isSelected = activeSuggestionIndex === idx;
                         return (
                           <li
@@ -562,7 +572,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                             </div>
                             <button
                               type="button"
-                              aria-label="Remove search history"
+                              aria-label={isBengali ? 'অনুসন্ধান ইতিহাস থেকে সরান' : 'Remove search history'}
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -580,14 +590,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 )}
 
                 {/* Trending Searches in Malda (Task 35) */}
-                <div className="py-1">
-                  <div className="px-3 py-1.5 text-gray-400 font-semibold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                <div className="py-2 px-3">
+                  <div className="pb-1.5 text-gray-500 font-semibold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
                     <Flame className="w-3.5 h-3.5 text-orange-500" />
-                    {isBengali ? 'মালদায় ট্রেন্ডিং অনুসন্ধান' : 'Trending in Malda'}
+                    <span>{isBengali ? '🔥 মালদায় ট্রেন্ডিং অনুসন্ধান' : '🔥 Trending in Malda'}</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 px-3 py-1.5">
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {trendingSearches.map((item, tIdx) => {
-                      const itemIdx = searchHistory.length + tIdx;
+                      const itemIdx = displayHistory.length + tIdx;
                       const isSelected = activeSuggestionIndex === itemIdx;
                       const text = isBengali ? item.queryBn : item.query;
                       return (
@@ -600,15 +610,21 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                             setQuery(text);
                             executeSearch(text, item.category || selectedCategory);
                           }}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-colors cursor-pointer ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-amber-200/90 text-amber-950 font-bold border-amber-400 ring-1 ring-amber-400'
+                              ? 'bg-amber-200/90 text-amber-950 font-bold border-amber-400 ring-1 ring-amber-400 scale-[1.02]'
                               : 'bg-gray-100 hover:bg-amber-100 text-gray-700 hover:text-amber-900 border-gray-200'
                           }`}
                         >
                           <span>{text}</span>
                           {item.badge && (
-                            <span className="text-[9px] font-bold text-orange-600 ml-0.5">
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                                item.isHot
+                                  ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
                               {item.badge}
                             </span>
                           )}
@@ -780,37 +796,154 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   </div>
                 )}
 
-                {/* 4. "Did you mean" typo suggestion */}
+                {/* 4. "Did you mean" typo suggestion (Task 38) */}
                 {didYouMean && (
-                  <div className="px-3 py-2 bg-amber-50/60 text-xs text-amber-900 flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>{isBengali ? 'আপনি কি বোঝাতে চেয়েছেন:' : 'Did you mean:'}</span>
+                  <div className="px-3 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50/60 border-y border-amber-200/80 text-xs text-amber-950 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 truncate">
+                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+                      <span className="shrink-0">{isBengali ? 'আপনি কি বোঝাতে চেয়েছেন:' : 'Did you mean:'}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuery(didYouMean);
+                          executeSearch(didYouMean, selectedCategory);
+                        }}
+                        className="font-bold underline text-amber-800 hover:text-amber-950 truncate cursor-pointer"
+                      >
+                        {didYouMean}
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         setQuery(didYouMean);
                         executeSearch(didYouMean, selectedCategory);
                       }}
-                      className="font-bold underline text-amber-700 hover:text-amber-900 cursor-pointer"
+                      className="text-[11px] font-bold bg-amber-200/80 hover:bg-amber-300 text-amber-900 px-2 py-0.5 rounded cursor-pointer transition-colors shrink-0"
                     >
-                      {didYouMean}
+                      {isBengali ? 'খুঁজুন' : 'Search'}
                     </button>
                   </div>
                 )}
 
-                {/* 5. Zero Results Found Screen */}
+                {/* 5. Empathetic Zero Results Screen (Tasks 36, 37, 39) */}
                 {!isLoading && books.length === 0 && keywords.length === 0 && (
-                  <div className="px-4 py-5 text-center">
-                    <p className="text-xs text-gray-600 font-medium">
-                      {isBengali
-                        ? `"${query}" এর জন্য কোনো বই পাওয়া যায়নি`
-                        : `No books found matching "${query}"`}
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      {isBengali
-                        ? 'বানান সঠিক আছে কি না পরীক্ষা করুন অথবা অন্য কি-ওয়ার্ড দিয়ে চেষ্টা করুন'
-                        : 'Please check your spelling or try more generic keywords'}
-                    </p>
+                  <div className="px-4 py-4 text-center space-y-3">
+                    {/* Empathetic & Comforting Message (Task 37) */}
+                    <div className="space-y-1">
+                      <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-amber-50 text-amber-600 mb-0.5">
+                        <SearchX className="w-4.5 h-4.5" />
+                      </div>
+                      <p className="text-xs text-gray-800 font-semibold">
+                        {isBengali
+                          ? `দুঃখিত, "${query}"-এর সাথে মিলিয়ে কোনো বই পাওয়া যায়নি`
+                          : `Sorry, no books found matching "${query}"`}
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        {isBengali
+                          ? 'বানানটি ঠিক আছে কি না পুনরায় দেখুন, অথবা নিচের সাধারণ বিষয়গুলো দিয়ে চেষ্টা করুন'
+                          : 'Please check your spelling or try broader subjects below'}
+                      </p>
+                    </div>
+
+                    {/* Quick Subject Suggestion Chips */}
+                    <div className="pt-0.5">
+                      <div className="flex flex-wrap justify-center gap-1.5">
+                        {[
+                          { label: 'WBCS', labelBn: 'WBCS ২০২৬' },
+                          { label: 'History', labelBn: 'ইতিহাস' },
+                          { label: 'UGB Sem 4', labelBn: 'গৌড়বঙ্গ UGB' },
+                          { label: 'Primary TET', labelBn: 'প্রাইমারি টেট' },
+                          { label: 'Bengali Literature', labelBn: 'সাহিত্য' },
+                        ].map((chip, cIdx) => {
+                          const chipText = isBengali ? chip.labelBn : chip.label;
+                          return (
+                            <button
+                              key={cIdx}
+                              type="button"
+                              onClick={() => {
+                                setQuery(chipText);
+                                executeSearch(chipText, selectedCategory);
+                              }}
+                              className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 hover:bg-amber-100 text-gray-700 hover:text-amber-900 border border-gray-200 transition-colors cursor-pointer"
+                            >
+                              {chipText}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Task 36: Personalized Recommendations or Alternative Bestsellers */}
+                    {personalizedRecommendations.length > 0 && (
+                      <div className="pt-2 border-t border-gray-100 text-left">
+                        <div className="flex items-center justify-between mb-1.5 px-0.5">
+                          <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                            {isBengali ? 'আপনার জন্য বিকল্প বই:' : 'Recommended alternatives:'}
+                          </span>
+                          {preferredCategory && (
+                            <span className="text-amber-700 font-medium text-[10px] bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                              {preferredCategory}
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          {personalizedRecommendations.slice(0, 2).map((recBook: any) => (
+                            <div
+                              key={recBook.id}
+                              onClick={() => handleSelectBook(recBook)}
+                              className="flex items-center justify-between p-1.5 rounded hover:bg-amber-50/80 cursor-pointer border border-gray-100 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <div className="w-6 h-8 bg-amber-100/70 rounded shrink-0 flex items-center justify-center text-amber-700 border border-amber-200">
+                                  <BookOpen className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="truncate">
+                                  <p className="text-xs font-medium text-gray-800 truncate">
+                                    {isBengali ? recBook.titleBn : recBook.title}
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 truncate">
+                                    {isBengali ? recBook.authorBn : recBook.author}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0 ml-2">
+                                <span className="text-xs font-bold text-red-600">₹{recBook.price}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Task 39: WhatsApp Book Request */}
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="text-[11px] text-gray-600 mb-1.5 font-medium">
+                        {isBengali
+                          ? 'কাঙ্ক্ষিত বইটি কি খুঁজে পাচ্ছেন না? সরাসরি আমাদের জানান:'
+                          : 'Can\'t find the book you\'re looking for? Let us know directly:'}
+                      </p>
+                      <a
+                        href={`https://wa.me/919733000000?text=${encodeURIComponent(
+                          isBengali
+                            ? `নমস্কার M.M Book House Malda, আমি ওয়েবসাইটে "${query}" বইটি খুঁজছিলাম কিন্তু খুঁজে পাইনি। এই বইটি কি দোকানে পাওয়া যাবে বা সংগ্রহ করে দেওয়া যাবে?`
+                            : `Hello M.M Book House Malda, I was looking for "${query}" on your website but could not find it. Is this book available or can you arrange it?`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>
+                          {isBengali ? 'হোয়াটসঅ্যাপে বইয়ের অনুরোধ করুন' : 'Request Book on WhatsApp'}
+                        </span>
+                      </a>
+                      <p className="text-[9px] text-gray-400 mt-1">
+                        {isBengali
+                          ? '⚡ আমাদের টিম ২৪ ঘণ্টার মধ্যে বইটি সংগ্রহ করার ব্যবস্থা করবে'
+                          : '⚡ Our team will arrange the book within 24 hours'}
+                      </p>
+                    </div>
                   </div>
                 )}
 

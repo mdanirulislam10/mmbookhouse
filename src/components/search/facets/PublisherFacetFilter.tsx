@@ -56,15 +56,28 @@ export const PublisherFacetFilter: React.FC<PublisherFacetFilterProps> = ({
       );
     }
 
-    // Sort by popularity (count desc) or alphabetical (labelBn asc)
-    if (sortMode === 'popular') {
-      result.sort((a, b) => b.count - a.count);
-    } else {
-      result.sort((a, b) => (a.labelBn || a.label).localeCompare(b.labelBn || b.label, 'bn'));
-    }
+    // Zero-Match Demotion (Task 22):
+    // 1. Selected items stay at top
+    // 2. Active items (count > 0) sorted by user's chosen mode (popular or alpha)
+    // 3. Zero-match items (count === 0) demoted to the bottom
+    return result.sort((a, b) => {
+      const aSelected = selectedPublishers.includes(a.id);
+      const bSelected = selectedPublishers.includes(b.id);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
 
-    return result;
-  }, [options, searchQuery, sortMode]);
+      const aHasCount = a.count > 0;
+      const bHasCount = b.count > 0;
+      if (aHasCount && !bHasCount) return -1;
+      if (!aHasCount && bHasCount) return 1;
+
+      if (sortMode === 'popular') {
+        return b.count - a.count;
+      } else {
+        return (a.labelBn || a.label).localeCompare(b.labelBn || b.label, 'bn');
+      }
+    });
+  }, [options, searchQuery, sortMode, selectedPublishers]);
 
   // Determine visible options
   const visibleOptions = useMemo(() => {

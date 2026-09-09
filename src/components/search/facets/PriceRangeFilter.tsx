@@ -106,10 +106,14 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
     }
   };
 
+  // BUG-M6-R3-1 Fix: Update local state while dragging, commit to URL/filter only on release
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     setSliderVal(val);
     setLocalMax(String(val));
+  };
+
+  const handleSliderCommit = (val: number) => {
     onPriceChange(minPrice, val);
   };
 
@@ -249,6 +253,13 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
           step="50"
           value={sliderVal}
           onChange={handleSliderChange}
+          onMouseUp={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value))}
+          onTouchEnd={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value))}
+          onKeyUp={(e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') {
+              handleSliderCommit(Number((e.target as HTMLInputElement).value));
+            }
+          }}
           className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
         />
         <div className="flex justify-between text-[9px] text-gray-400 font-mono mt-0.5">

@@ -6,3 +6,6 @@ export * from './AmazonRibbonBadge';
 export * from './AmazonProductCard';
 export * from './QuickViewModal';
 export * from './ProductCarousel';
+export * from './CampaignBanner';
+export * from './SuperSaverComboWidget';
+export * from './PersonalizedRecommendations';

@@ -4,12 +4,15 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { HeroBanner } from '@/types/banner';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { getAdaptiveImageUrl } from '@/lib/utils/adaptiveImage';
 import { BookOpen, ArrowRight } from 'lucide-react';
 
 interface HeroBannerSlideProps {
   banner: HeroBanner;
   isActive: boolean;
   isPriority?: boolean;
+  onBannerClick?: (banner: HeroBanner) => void;
 }
 
 // Issue 8 Fix: Lightweight Shimmer SVG for smooth blurDataURL loading preview
@@ -35,8 +38,18 @@ export const HeroBannerSlide: React.FC<HeroBannerSlideProps> = ({
   banner,
   isActive,
   isPriority = false,
+  onBannerClick,
 }) => {
   const shouldPrioritize = isPriority || Boolean(banner.priority);
+  const { isSlowConnection, saveData } = useNetworkStatus();
+
+  const effectiveMobileImageUrl = banner.mobileImageUrl
+    ? getAdaptiveImageUrl(banner.mobileImageUrl, { width: 768, isSlowConnection, saveData })
+    : '';
+
+  const effectiveDesktopImageUrl = banner.imageUrl
+    ? getAdaptiveImageUrl(banner.imageUrl, { width: 1400, isSlowConnection, saveData })
+    : '';
 
   return (
     <div
@@ -51,15 +64,16 @@ export const HeroBannerSlide: React.FC<HeroBannerSlideProps> = ({
         href={banner.targetUrl}
         prefetch={true}
         tabIndex={isActive ? 0 : -1}
+        onClick={() => onBannerClick?.(banner)}
         className="absolute inset-0 z-[3] cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset"
         aria-label={`${banner.titleBn} - ${banner.ctaTextBn}`}
       />
 
       {/* Task 7, 8 & Issue 7 Fix: Mobile Optimized Image (<768px) */}
-      {banner.mobileImageUrl && (
+      {effectiveMobileImageUrl && (
         <div className="absolute inset-0 z-0 overflow-hidden md:hidden">
           <Image
-            src={banner.mobileImageUrl}
+            src={effectiveMobileImageUrl}
             alt={banner.titleBn}
             fill
             sizes="100vw"
@@ -75,10 +89,10 @@ export const HeroBannerSlide: React.FC<HeroBannerSlideProps> = ({
       )}
 
       {/* Task 7, 8 & Issue 7 Fix: Desktop Optimized Image (>=768px) */}
-      {banner.imageUrl && (
+      {effectiveDesktopImageUrl && (
         <div className={`absolute inset-0 z-0 overflow-hidden ${banner.mobileImageUrl ? 'hidden md:block' : ''}`}>
           <Image
-            src={banner.imageUrl}
+            src={effectiveDesktopImageUrl}
             alt={banner.titleBn}
             fill
             sizes="(max-width: 1200px) 100vw, 1400px"
