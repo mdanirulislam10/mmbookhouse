@@ -38,6 +38,15 @@ function notifyTabsOfCartChange() {
   }
 }
 
+function isSameCartItem(existing: CartItem, incoming: { id: string; bookId?: string }): boolean {
+  const isExistingBundle = existing.id.startsWith('cart-bundle-');
+  const isIncomingBundle = incoming.id.startsWith('cart-bundle-');
+  if (isExistingBundle || isIncomingBundle) {
+    return existing.id === incoming.id;
+  }
+  return existing.id === incoming.id || Boolean(incoming.bookId && existing.bookId === incoming.bookId);
+}
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -60,7 +69,7 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (item) => {
         const currentItems = get().items;
-        const existingIndex = currentItems.findIndex((i) => i.id === item.id || i.bookId === item.bookId);
+        const existingIndex = currentItems.findIndex((i) => isSameCartItem(i, item));
 
         let updatedItems: CartItem[];
         const addedQty = item.quantity || 1;
@@ -114,7 +123,7 @@ export const useCartStore = create<CartStore>()(
         let lastItem: CartItem | null = null;
 
         for (const item of newItems) {
-          const existingIndex = currentItems.findIndex((i) => i.id === item.id || i.bookId === item.bookId);
+          const existingIndex = currentItems.findIndex((i) => isSameCartItem(i, item));
           const addedQty = item.quantity || 1;
 
           if (existingIndex > -1) {

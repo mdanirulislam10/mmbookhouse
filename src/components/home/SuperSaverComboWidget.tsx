@@ -31,20 +31,29 @@ export function SuperSaverComboWidget({ className = '' }: SuperSaverComboWidgetP
   const handleAddBundleToCart = () => {
     if (!activeCombo) return;
 
-    // Calculate individual discounted price proportion for each book
+    // Calculate individual discounted price proportion with remainder absorption on the last item
     const priceRatio = activeCombo.comboPrice / activeCombo.totalMrp;
+    let accumulated = 0;
 
-    const cartItems = activeCombo.books.map((book) => ({
-      id: `cart-bundle-${activeCombo.id}-${book.bookId}`,
-      bookId: book.bookId,
-      title: book.title,
-      titleBn: `${book.titleBn} (কম্বো অফার)`,
-      author: book.authorBn || book.author,
-      price: Math.round(book.mrp * priceRatio),
-      mrp: book.mrp,
-      quantity: 1,
-      coverImage: book.coverImage,
-    }));
+    const cartItems = activeCombo.books.map((book, idx) => {
+      const isLast = idx === activeCombo.books.length - 1;
+      const allocatedPrice = isLast
+        ? Math.max(0, activeCombo.comboPrice - accumulated)
+        : Math.round(book.mrp * priceRatio);
+      accumulated += allocatedPrice;
+
+      return {
+        id: `cart-bundle-${activeCombo.id}-${book.bookId}`,
+        bookId: book.bookId,
+        title: book.title,
+        titleBn: `${book.titleBn} (কম্বো অফার)`,
+        author: book.authorBn || book.author,
+        price: allocatedPrice,
+        mrp: book.mrp,
+        quantity: 1,
+        coverImage: book.coverImage,
+      };
+    });
 
     addItems(cartItems);
     triggerBounce();

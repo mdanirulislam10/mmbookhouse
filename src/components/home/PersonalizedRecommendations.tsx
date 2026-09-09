@@ -39,13 +39,13 @@ export function PersonalizedRecommendations({ className = '' }: PersonalizedReco
       ];
     }
 
-    // Has history: Prioritize books in the same categories as browsed, or the viewed books
+    // Has history: Prioritize books in the same categories as browsed, and maintain recency order for viewed books
+    const viewedBooks = bookIds
+      .map((id) => allBooks.find((b) => b.bookId === id))
+      .filter(Boolean) as CarouselProduct[];
+
     const categoryMatched = allBooks.filter((book) =>
       categories.includes(book.category) && !bookIds.includes(book.bookId)
-    );
-
-    const viewedBooks = allBooks.filter((book) =>
-      bookIds.includes(book.bookId)
     );
 
     const merged = [...viewedBooks, ...categoryMatched];
@@ -82,8 +82,6 @@ export function PersonalizedRecommendations({ className = '' }: PersonalizedReco
       items: recommendedItems,
     };
   }, [hasHistory, recommendedItems]);
-
-  if (!isInitialized) return null;
 
   return (
     <div className={`relative ${className}`}>
