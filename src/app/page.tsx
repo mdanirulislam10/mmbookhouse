@@ -518,7 +518,7 @@ export default function HomePage() {
             <span>মডিউল ৪ (ভাগ ৭: কাজ ৩১ থেকে ৩৫) হরাইজন্টাল প্রোডাক্ট ক্যারোজেল ও কুইক শপিং কার্ডস মেট্রিক্স</span>
           </div>
           <span className="text-xs font-bold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full w-fit">
-            ৫/৫ কাজ বাস্তবায়িত ও সক্রিয়
+            ৫/৫ কাজ বাস্তবায়িত ও সক্রিয় (অডিট সংশোধিত)
           </span>
         </div>
 
@@ -530,12 +530,12 @@ export default function HomePage() {
                 ৩১
               </span>
               <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                Horizontal Row
+                Row Carousel
               </span>
             </div>
-            <h4 className="text-xs font-bold text-gray-900">হরাইজন্টাল রো ক্যারোজেল</h4>
+            <h4 className="text-xs font-bold text-gray-900">ক্যারোজেল আর্কিটেকচার</h4>
             <p className="text-[11px] text-gray-600 leading-tight">
-              ৮-১০টি কিউরেটেড বই প্রদর্শনী, `overflow-x-auto`, CSS `snap-x snap-mandatory` ও নো-স্ক্রোলবার আর্কিটেকচার।
+              হোমপেজে এক সারিতে ৮-১০টি বইয়ের হরাইজন্টাল রো, `overflow-x-auto`, `snap-x` ও `.no-scrollbar` আর্কিটেকচার।
             </p>
           </div>
 
@@ -546,12 +546,12 @@ export default function HomePage() {
                 ৩২
               </span>
               <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                Smart Page Jump
+                Smart Jump
               </span>
             </div>
-            <h4 className="text-xs font-bold text-gray-900">স্মার্ট পেজ জাম্প কন্ট্রোলস</h4>
+            <h4 className="text-xs font-bold text-gray-900">স্মার্ট পেজ জাম্প</h4>
             <p className="text-[11px] text-gray-600 leading-tight">
-              ডেস্কটপ সাইড ভাসমান বোতাম, প্রতি ক্লিকে ৩-৪টি বই স্মুথ জাম্প এবং শুরু ও শেষ পয়েন্টে স্বয়ংক্রিয় হাইড/ডিজেবল লজিক।
+              ডেস্কটপে ভাসমান তীর বোতাম, প্রতি ক্লিকে ৩-৪টি বই স্মুথ জাম্প, হোভার ভিজিবিলিটি এবং বাউন্ডারি অটো-হাইড লজিক।
             </p>
           </div>
 
@@ -565,9 +565,9 @@ export default function HomePage() {
                 6-Point Card
               </span>
             </div>
-            <h4 className="text-xs font-bold text-gray-900">৬-পয়েন্ট সমৃদ্ধ প্রোডাক্ট কার্ড</h4>
+            <h4 className="text-xs font-bold text-gray-900">৬-পয়েন্ট প্রোডাক্ট কার্ড</h4>
             <p className="text-[11px] text-gray-600 leading-tight">
-              কভার থাম্বনেইল ও জুম, টাইটেল, লেখক/প্রকাশক, স্টার রেটিং ও রিভিউ, বিক্রয়মূল্য এবং কাটা MRP সহ পূর্ণাঙ্গ লেআউট।
+              কভার থাম্বনেইল ও জুম, টাইটেল, লেখক/প্রকাশক, স্টার রেটিং ও রিভিউ, বিক্রয়মূল্য এবং কাটা MRP সহ পূর্ণাঙ্গ অ্যামাজন লেআউট।
             </p>
           </div>
 
@@ -581,9 +581,9 @@ export default function HomePage() {
                 1-Click Add
               </span>
             </div>
-            <h4 className="text-xs font-bold text-gray-900">১-ক্লিক "Add to Cart"</h4>
+            <h4 className="text-xs font-bold text-gray-900">১-ক্লিক অ্যাড টু কার্ট</h4>
             <p className="text-[11px] text-gray-600 leading-tight">
-              সিগনেচার অ্যামাজন লাইট ইয়েলো বাটন (`#ffd814`), সরাসরি কার্ট স্টেট আপডেট ও লাইভ বাউন্স ফিডব্যাক অ্যানিমেশন।
+              সিগনেচার লাইট ইয়েলো বোতাম (`#ffd814`), পেজ না খুলেই সরাসরি কার্ট আপডেট ও লাইভ বাউন্স ফিডব্যাক অ্যানিমেশন।
             </p>
           </div>
 
@@ -594,12 +594,12 @@ export default function HomePage() {
                 ৩৫
               </span>
               <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                Lightbox Modal
+                Quick View Modal
               </span>
             </div>
-            <h4 className="text-xs font-bold text-gray-900">ইন্টারঅ্যাক্টিভ "Quick View"</h4>
+            <h4 className="text-xs font-bold text-gray-900">কুইক ভিউ লাইটবক্স</h4>
             <p className="text-[11px] text-gray-600 leading-tight">
-              কভার ক্লিকে লাইটবক্স মডাল পপআপ, সূচিপত্র, পৃষ্ঠা সংখ্যা, বাঁধাই স্পেসিফিকেশন ও ইনস্ট্যান্ট কেনাকাটার অপশন।
+              কভার ক্লিকে লাইটবক্স মডাল, সূচিপত্র, স্পেসিফিকেশন প্রিভিউ, ডিল লিমিটেশন ও নিরাপদ ইনস্ট্যান্ট পারচেজ অ্যাকশন।
             </p>
           </div>
         </div>

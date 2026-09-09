@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CarouselProduct } from '@/types/carousel';
 import { useCart } from '@/hooks/useCartStore';
+import { getActiveDealForBook } from '@/lib/data/flashDeals';
+import { AmazonDealBadge } from '@/components/deals/AmazonDealBadge';
 import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
 import {
   X,
@@ -15,11 +17,11 @@ import {
   Truck,
   BookOpen,
   FileText,
-  Bookmark,
   ShieldCheck,
   Plus,
   Minus,
-  ExternalLink
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 
 interface QuickViewModalProps {
@@ -32,14 +34,25 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
   const { addItem, triggerBounce } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
+  const [isInstantBuying, setIsInstantBuying] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Audit Point 4 & 7: Check active deal status and enforce 1-copy limit
+  const activeDeal = product ? getActiveDealForBook(product.bookId) : null;
+  const isDealActive = !!activeDeal;
+  const currentPrice = product ? (isDealActive ? activeDeal.dealPrice : product.price) : 0;
+  const currentMrp = product ? (isDealActive ? activeDeal.mrp : product.mrp) : 0;
+  const currentDiscount = product ? (isDealActive ? activeDeal.discountPercentage : product.discountPercent) : 0;
+  const isMax1Limit = isDealActive;
+  const maxAllowedQty = isMax1Limit ? 1 : 10;
 
   // Reset state when opening a new product
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
       setIsAdded(false);
+      setIsInstantBuying(false);
       // Focus close button for accessibility
       setTimeout(() => {
         closeButtonRef.current?.focus();
@@ -69,18 +82,20 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
 
   if (!isOpen || !product) return null;
 
-  const savingsAmount = product.mrp - product.price;
+  const savingsAmount = currentMrp - currentPrice;
 
   const handleAddToCart = () => {
+    const finalQty = isMax1Limit ? 1 : quantity;
     addItem({
       id: `cart-${product.bookId}`,
       bookId: product.bookId,
       title: product.title,
       titleBn: product.titleBn,
       author: product.authorBn || product.author,
-      price: product.price,
-      mrp: product.mrp,
-      quantity: quantity,
+      price: currentPrice,
+      mrp: currentMrp,
+      quantity: finalQty,
+      maxQuantity: isMax1Limit ? 1 : undefined,
       coverImage: product.coverImage,
     });
     triggerBounce();
@@ -90,8 +105,18 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
     }, 2000);
   };
 
+  // Audit Point 3: Safe instant buy without 404 navigation or screen freezing
+  const handleInstantBuy = () => {
+    handleAddToCart();
+    setIsInstantBuying(true);
+    setTimeout(() => {
+      setIsInstantBuying(false);
+      onClose();
+    }, 600);
+  };
+
   const handleIncrement = () => {
-    setQuantity((prev) => Math.min(prev + 1, 10));
+    setQuantity((prev) => Math.min(prev + 1, maxAllowedQty));
   };
 
   const handleDecrement = () => {
@@ -135,14 +160,24 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 className="object-cover object-center"
               />
 
-              {/* Badges Overlay */}
-              {product.badgeBn && (
-                <div className="absolute top-2.5 left-2.5 bg-amber-500 text-gray-950 font-extrabold text-xs px-2.5 py-1 rounded shadow-md">
-                  {product.badgeBn}
+              {/* Audit Point 4: Deal of the Day Badge vs Bestseller Badge */}
+              {isDealActive ? (
+                <div className="absolute top-2.5 left-2.5 z-10">
+                  <AmazonDealBadge
+                    discountPercentage={activeDeal.discountPercentage}
+                    dealType={activeDeal.dealType}
+                    isExpired={false}
+                  />
                 </div>
+              ) : (
+                product.badgeBn && (
+                  <div className="absolute top-2.5 left-2.5 bg-amber-500 text-gray-950 font-extrabold text-xs px-2.5 py-1 rounded shadow-md">
+                    {product.badgeBn}
+                  </div>
+                )
               )}
 
-              {product.discountPercent > 0 && (
+              {!isDealActive && product.discountPercent > 0 && (
                 <div className="absolute top-2.5 right-2.5 bg-[#cc0c39] text-white font-extrabold text-xs px-2.5 py-1 rounded shadow-md">
                   {toBengaliNumerals(product.discountPercent)}% ছাড়
                 </div>
@@ -224,25 +259,27 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 </span>
               </div>
 
-              {/* Pricing Section */}
+              {/* Pricing Section (Audit Point 4) */}
               <div className="mt-4 p-3.5 bg-gray-50 rounded-xl border border-gray-200">
                 <div className="flex items-baseline gap-2.5 flex-wrap">
                   <span className="text-2xl sm:text-3xl font-black text-gray-950">
-                    {formatINR(product.price)}
+                    {formatINR(currentPrice)}
                   </span>
-                  {product.mrp > product.price && (
+                  {currentMrp > currentPrice && (
                     <>
                       <span className="text-xs sm:text-sm text-gray-500 line-through">
-                        M.R.P.: {formatINR(product.mrp)}
+                        M.R.P.: {formatINR(currentMrp)}
                       </span>
                       <span className="text-xs sm:text-sm font-bold text-[#cc0c39]">
-                        (বাঁচালেন {formatINR(savingsAmount)} বা {toBengaliNumerals(product.discountPercent)}% ছাড়)
+                        (বাঁচালেন {formatINR(savingsAmount)} বা {toBengaliNumerals(currentDiscount)}% ছাড়)
                       </span>
                     </>
                   )}
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  সকল স্থানীয় কর অন্তর্ভুক্ত • দ্রুত শিপিং সুবিধা
+                  {isDealActive
+                    ? '🔥 বিশেষ লাইভ ডিল চলছে • সর্বোচ্চ ডিসকাউন্টে সরাসরি বুক করুন'
+                    : 'সকল স্থানীয় কর অন্তর্ভুক্ত • দ্রুত শিপিং সুবিধা'}
                 </p>
               </div>
 
@@ -305,25 +342,35 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
 
             {/* Bottom Actions Section */}
             <div className="pt-4 border-t border-gray-200 space-y-3">
+              {/* Audit Point 7: Deal Item Limitation Notice */}
+              {isMax1Limit && (
+                <div className="flex items-center gap-2 p-2 bg-rose-50 border border-rose-200/80 rounded-lg text-xs text-rose-800 font-bold">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                  <span>ফ্ল্যাশ ডিল অফার: প্রতি অ্যাকাউন্টে সর্বোচ্চ ১ কপি সীমাবদ্ধ</span>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                {/* Quantity Selector */}
+                {/* Quantity Selector (Audit Point 7: disabled if isMax1Limit) */}
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white shadow-xs w-fit">
                   <button
                     onClick={handleDecrement}
-                    disabled={quantity <= 1}
+                    disabled={quantity <= 1 || isMax1Limit}
                     className="p-2 hover:bg-gray-100 disabled:opacity-40 transition-colors text-gray-700"
                     aria-label="সংখ্যা কমান"
+                    title={isMax1Limit ? 'ডিল আইটেমে ১ কপি সীমাবদ্ধ' : 'সংখ্যা কমান'}
                   >
                     <Minus className="w-4 h-4" />
                   </button>
                   <span className="w-10 text-center font-bold text-sm text-gray-900">
-                    {toBengaliNumerals(quantity)}
+                    {toBengaliNumerals(isMax1Limit ? 1 : quantity)}
                   </span>
                   <button
                     onClick={handleIncrement}
-                    disabled={quantity >= 10}
+                    disabled={quantity >= maxAllowedQty || isMax1Limit}
                     className="p-2 hover:bg-gray-100 disabled:opacity-40 transition-colors text-gray-700"
                     aria-label="সংখ্যা বাড়ান"
+                    title={isMax1Limit ? 'ডিল আইটেমে ১ কপি সীমাবদ্ধ' : 'সংখ্যা বাড়ান'}
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -341,7 +388,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                   {isAdded ? (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>{toBengaliNumerals(quantity)}টি কার্টে যোগ করা হয়েছে ✓</span>
+                      <span>{toBengaliNumerals(isMax1Limit ? 1 : quantity)}টি কার্টে যোগ করা হয়েছে ✓</span>
                     </>
                   ) : (
                     <>
@@ -351,15 +398,16 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                   )}
                 </button>
 
-                {/* Instant Buy Now Button */}
-                <Link
-                  href="/cart"
-                  onClick={handleAddToCart}
-                  className="py-2.5 px-5 rounded-full font-bold text-xs sm:text-sm bg-[#ffa41c] hover:bg-[#fa8900] active:bg-[#e07a00] text-gray-950 border border-[#ff8f00] flex items-center justify-center gap-1.5 shadow-sm transition-colors text-center"
+                {/* Audit Point 3: Instant Buy Now Action Button (no 404 page route, instant cart add & close) */}
+                <button
+                  type="button"
+                  onClick={handleInstantBuy}
+                  disabled={isInstantBuying}
+                  className="py-2.5 px-5 rounded-full font-bold text-xs sm:text-sm bg-[#ffa41c] hover:bg-[#fa8900] active:bg-[#e07a00] text-gray-950 border border-[#ff8f00] flex items-center justify-center gap-1.5 shadow-sm transition-colors text-center cursor-pointer"
                 >
                   <Zap className="w-4 h-4" />
-                  <span>এখনই কিনুন</span>
-                </Link>
+                  <span>{isInstantBuying ? 'যোগ হচ্ছে...' : 'এখনই কিনুন'}</span>
+                </button>
               </div>
 
               {/* View Full Product Details Link */}

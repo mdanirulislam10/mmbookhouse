@@ -5,13 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CarouselProduct } from '@/types/carousel';
 import { useCart } from '@/hooks/useCartStore';
+import { getActiveDealForBook } from '@/lib/data/flashDeals';
+import { AmazonDealBadge } from '@/components/deals/AmazonDealBadge';
 import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
 import {
   Star,
   ShoppingCart,
   Check,
   Eye,
-  Zap,
   Sparkles
 } from 'lucide-react';
 
@@ -29,6 +30,14 @@ export function AmazonProductCard({
   const { addItem, triggerBounce } = useCart();
   const [isAdded, setIsAdded] = useState(false);
 
+  // Audit Point 4: Synchronize live deal pricing and badges with Deal of the Day engine
+  const activeDeal = getActiveDealForBook(product.bookId);
+  const isDealActive = !!activeDeal;
+  const currentPrice = isDealActive ? activeDeal.dealPrice : product.price;
+  const currentMrp = isDealActive ? activeDeal.mrp : product.mrp;
+  const currentDiscount = isDealActive ? activeDeal.discountPercentage : product.discountPercent;
+  const maxAllowedQty = isDealActive ? 1 : undefined;
+
   // Task 34: 1-Click "Add to Cart" Quick Action
   const handleQuickAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,9 +49,10 @@ export function AmazonProductCard({
       title: product.title,
       titleBn: product.titleBn,
       author: product.authorBn || product.author,
-      price: product.price,
-      mrp: product.mrp,
+      price: currentPrice,
+      mrp: currentMrp,
       quantity: 1,
+      maxQuantity: maxAllowedQty,
       coverImage: product.coverImage,
     });
 
@@ -54,6 +64,7 @@ export function AmazonProductCard({
     }, 1500);
   };
 
+  // Audit Point 2: Open quick view on thumbnail click (desktop + mobile)
   const handleOpenQuickView = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -66,8 +77,20 @@ export function AmazonProductCard({
     >
       {/* Top Part: Cover, Badges, Title, Ratings & Prices */}
       <div className="space-y-2.5">
-        {/* Point 1: Book Cover Thumbnail with Quick View Hover Action */}
-        <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center">
+        {/* Point 1: Book Cover Thumbnail with Quick View Trigger (Audit Point 2) */}
+        <div
+          onClick={handleOpenQuickView}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onQuickView(product);
+            }
+          }}
+          aria-label={`${product.titleBn} এর কুইক প্রিভিউ খুলুন`}
+          className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center cursor-pointer select-none focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+        >
           <Image
             src={product.coverImage}
             alt={product.titleBn}
@@ -76,28 +99,38 @@ export function AmazonProductCard({
             className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
           />
 
-          {/* Signature Badge (e.g. #1 Best Seller / Top Choice) */}
-          {product.badgeBn && (
-            <div className="absolute top-2 left-2 z-10 bg-amber-500 text-gray-950 font-extrabold text-[10px] px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
-              <Sparkles className="w-2.5 h-2.5" />
-              <span>{product.badgeBn}</span>
+          {/* Audit Point 4: Synchronized Deal Badge OR Bestseller Badge */}
+          {isDealActive ? (
+            <div className="absolute top-2 left-2 z-10">
+              <AmazonDealBadge
+                discountPercentage={activeDeal.discountPercentage}
+                dealType={activeDeal.dealType}
+                isExpired={false}
+              />
             </div>
+          ) : (
+            product.badgeBn && (
+              <div className="absolute top-2 left-2 z-10 bg-amber-500 text-gray-950 font-extrabold text-[10px] px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5" />
+                <span>{product.badgeBn}</span>
+              </div>
+            )
           )}
 
-          {/* Discount Percentage Badge */}
-          {product.discountPercent > 0 && (
+          {/* Discount Percentage Badge when not in deal mode */}
+          {!isDealActive && product.discountPercent > 0 && (
             <div className="absolute top-2 right-2 z-10 bg-[#cc0c39] text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded shadow-xs">
               -{toBengaliNumerals(product.discountPercent)}%
             </div>
           )}
 
-          {/* Task 35 Trigger: Quick View Pill on Hover / Tap */}
+          {/* Task 35 Trigger: Quick View Pill (visible on hover on desktop, accessible on mobile) */}
           <button
             onClick={handleOpenQuickView}
             aria-label={`${product.titleBn} এর দ্রুত বিবরণী দেখুন`}
-            className="absolute inset-x-3 bottom-2.5 z-10 py-1.5 px-2.5 rounded-full bg-white/95 hover:bg-white text-gray-800 hover:text-gray-950 font-bold text-[11px] shadow-md border border-gray-200/90 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 backdrop-blur-xs"
+            className="absolute inset-x-2.5 bottom-2 z-10 py-1.5 px-2 rounded-full bg-white/95 hover:bg-white text-gray-900 font-bold text-[10px] sm:text-[11px] shadow-md border border-gray-200/90 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 max-sm:opacity-95 transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 backdrop-blur-xs"
           >
-            <Eye className="w-3.5 h-3.5 text-amber-600" />
+            <Eye className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
             <span>এক নজরে দেখুন</span>
           </button>
         </div>
@@ -146,17 +179,17 @@ export function AmazonProductCard({
         <div className="space-y-0.5 pt-1 border-t border-gray-100">
           <div className="flex items-baseline gap-1.5">
             <span className="text-base sm:text-lg font-black text-gray-950 font-sans tracking-tight">
-              {formatINR(product.price)}
+              {formatINR(currentPrice)}
             </span>
-            {product.mrp > product.price && (
+            {currentMrp > currentPrice && (
               <span className="text-[11px] text-gray-400 line-through">
-                {formatINR(product.mrp)}
+                {formatINR(currentMrp)}
               </span>
             )}
           </div>
-          {product.mrp > product.price && (
+          {currentMrp > currentPrice && (
             <div className="text-[10px] font-bold text-[#cc0c39]">
-              {toBengaliNumerals(product.discountPercent)}% ছাড়ের ডিল
+              {isDealActive ? '🔥 লিমিটেড টাইম ডিল প্রাইস' : `${toBengaliNumerals(currentDiscount)}% ছাড়ের অফার`}
             </div>
           )}
         </div>

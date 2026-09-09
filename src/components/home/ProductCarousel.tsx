@@ -127,7 +127,7 @@ export function ProductCarousel({ collection, className = '' }: ProductCarouselP
           <button
             onClick={() => handleScrollJump('left')}
             aria-label="পূর্ববর্তী বইগুলো দেখুন"
-            className="hidden sm:flex absolute -left-3 sm:-left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 hover:bg-white text-gray-800 hover:text-gray-950 shadow-md hover:shadow-lg border border-gray-300 items-center justify-center transition-all duration-200 active:scale-95 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+            className="hidden sm:flex absolute -left-2 sm:-left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/95 hover:bg-white text-gray-800 hover:text-gray-950 shadow-xl border border-gray-300/80 items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-all duration-200 active:scale-95 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:opacity-100"
           >
             <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
@@ -136,7 +136,7 @@ export function ProductCarousel({ collection, className = '' }: ProductCarouselP
         {/* Task 31: Horizontal Product Row Container */}
         <div
           ref={containerRef}
-          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-none scroll-smooth snap-x snap-mandatory py-2 px-1 focus:outline-hidden"
+          className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory py-2 px-1 focus:outline-hidden"
           tabIndex={0}
           role="region"
           aria-label={`${collection.titleBn} বইয়ের তালিকা`}
@@ -178,7 +178,7 @@ export function ProductCarousel({ collection, className = '' }: ProductCarouselP
           <button
             onClick={() => handleScrollJump('right')}
             aria-label="পরবর্তী বইগুলো দেখুন"
-            className="hidden sm:flex absolute -right-3 sm:-right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 hover:bg-white text-gray-800 hover:text-gray-950 shadow-md hover:shadow-lg border border-gray-300 items-center justify-center transition-all duration-200 active:scale-95 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+            className="hidden sm:flex absolute -right-2 sm:-right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/95 hover:bg-white text-gray-800 hover:text-gray-950 shadow-xl border border-gray-300/80 items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-all duration-200 active:scale-95 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:opacity-100"
           >
             <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
