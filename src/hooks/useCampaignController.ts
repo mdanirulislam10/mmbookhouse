@@ -3,14 +3,23 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { SeasonalCampaign } from '@/types/campaign';
 import { SCHEDULED_CAMPAIGNS } from '@/lib/data/campaigns';
+import { getSyncedCurrentTime, syncServerTime } from '@/lib/utils/serverTime';
 
 const DISMISSED_CAMPAIGN_KEY = 'mm_dismissed_campaign_id';
 
 export function useCampaignController() {
-  const [now, setNow] = useState<number>(Date.now());
+  const [now, setNow] = useState<number>(getSyncedCurrentTime);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+
+    // Sync with IST server time to prevent client-side device drift
+    syncServerTime().then(() => {
+      setNow(getSyncedCurrentTime());
+    });
+
     // Check if dismissed in this browser session
     try {
       const stored = sessionStorage.getItem(DISMISSED_CAMPAIGN_KEY);
@@ -23,13 +32,13 @@ export function useCampaignController() {
 
     // Tick every minute to re-check scheduled windows
     const interval = setInterval(() => {
-      setNow(Date.now());
+      setNow(getSyncedCurrentTime());
     }, 60000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Determine currently active scheduled campaign
+  // Determine currently active scheduled campaign using synced server time
   const activeCampaign = useMemo<SeasonalCampaign | null>(() => {
     const validCampaigns = SCHEDULED_CAMPAIGNS.filter((campaign) => {
       if (!campaign.isActive) return false;
@@ -46,9 +55,9 @@ export function useCampaignController() {
   }, [now]);
 
   const isDismissed = useMemo(() => {
-    if (!activeCampaign) return false;
+    if (!activeCampaign || !isMounted) return false;
     return dismissedId === activeCampaign.id;
-  }, [activeCampaign, dismissedId]);
+  }, [activeCampaign, dismissedId, isMounted]);
 
   const dismissCampaign = useCallback(() => {
     if (activeCampaign) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 
 export type EffectiveConnectionType = '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
 
@@ -11,82 +11,110 @@ interface NetworkInformation extends EventTarget {
   removeEventListener(type: string, listener: EventListener): void;
 }
 
-/**
- * Combined Network Status Hook:
- * Supports online/offline detection (Module 2) and connection speed / data saver (Module 4/Adaptive).
- */
-export function useNetworkStatus() {
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-  const [isReconnected, setIsReconnected] = useState<boolean>(false);
-  const [effectiveType, setEffectiveType] = useState<EffectiveConnectionType>('4g');
-  const [saveData, setSaveData] = useState<boolean>(false);
-  const [isSlowConnection, setIsSlowConnection] = useState<boolean>(false);
+export interface NetworkState {
+  isOnline: boolean;
+  isReconnected: boolean;
+  effectiveType: EffectiveConnectionType;
+  saveData: boolean;
+  isSlowConnection: boolean;
+}
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+const SERVER_SNAPSHOT: NetworkState = {
+  isOnline: true,
+  isReconnected: false,
+  effectiveType: '4g',
+  saveData: false,
+  isSlowConnection: false,
+};
 
-    // Check initial online status
-    setIsOnline(navigator.onLine);
+let currentNetworkState: NetworkState = { ...SERVER_SNAPSHOT };
+const subscribers = new Set<() => void>();
 
-    let reconnectedTimer: NodeJS.Timeout | null = null;
+function notifySubscribers() {
+  subscribers.forEach((cb) => cb());
+}
 
-    const handleOnline = () => {
-      setIsOnline(true);
-      setIsReconnected(true);
-      if (reconnectedTimer) clearTimeout(reconnectedTimer);
-      reconnectedTimer = setTimeout(() => {
-        setIsReconnected(false);
-      }, 3500);
+// Global single initialization of network listeners to prevent 80+ redundant event listeners
+if (typeof window !== 'undefined') {
+  currentNetworkState.isOnline = navigator.onLine;
+
+  let reconnectedTimer: NodeJS.Timeout | null = null;
+
+  const handleOnline = () => {
+    currentNetworkState = {
+      ...currentNetworkState,
+      isOnline: true,
+      isReconnected: true,
     };
+    notifySubscribers();
 
-    const handleOffline = () => {
-      setIsOnline(false);
-      setIsReconnected(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // TypeScript doesn't define navigator.connection by default
-    const connection = (navigator as unknown as { connection?: NetworkInformation }).connection;
-
-    if (!connection) {
-      setEffectiveType('4g');
-      setIsSlowConnection(false);
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-        if (reconnectedTimer) clearTimeout(reconnectedTimer);
+    if (reconnectedTimer) clearTimeout(reconnectedTimer);
+    reconnectedTimer = setTimeout(() => {
+      currentNetworkState = {
+        ...currentNetworkState,
+        isReconnected: false,
       };
-    }
+      notifySubscribers();
+    }, 3500);
+  };
 
-    const updateNetworkStatus = () => {
+  const handleOffline = () => {
+    currentNetworkState = {
+      ...currentNetworkState,
+      isOnline: false,
+      isReconnected: false,
+    };
+    notifySubscribers();
+  };
+
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+
+  const connection = (navigator as unknown as { connection?: NetworkInformation }).connection;
+  if (connection) {
+    const updateConnectionDetails = () => {
       const type = connection.effectiveType || '4g';
       const isSaveData = connection.saveData || false;
       const isSlow = type === 'slow-2g' || type === '2g' || type === '3g' || isSaveData;
 
-      setEffectiveType(type);
-      setSaveData(isSaveData);
-      setIsSlowConnection(isSlow);
+      currentNetworkState = {
+        ...currentNetworkState,
+        effectiveType: type,
+        saveData: isSaveData,
+        isSlowConnection: isSlow,
+      };
+      notifySubscribers();
     };
 
-    updateNetworkStatus();
+    updateConnectionDetails();
+    connection.addEventListener('change', updateConnectionDetails);
+  }
+}
 
-    connection.addEventListener('change', updateNetworkStatus);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      if (reconnectedTimer) clearTimeout(reconnectedTimer);
-      connection.removeEventListener('change', updateNetworkStatus);
-    };
-  }, []);
+function subscribe(callback: () => void) {
+  subscribers.add(callback);
+  return () => {
+    subscribers.delete(callback);
+  };
+}
+
+function getSnapshot(): NetworkState {
+  return currentNetworkState;
+}
+
+function getServerSnapshot(): NetworkState {
+  return SERVER_SNAPSHOT;
+}
+
+/**
+ * Singleton Network Status Hook:
+ * Single event listener across the entire page prevents memory leaks in large lists (Audit Fix 6).
+ */
+export function useNetworkStatus() {
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   return {
-    isOnline,
-    isOffline: !isOnline,
-    isReconnected,
-    effectiveType,
-    saveData,
-    isSlowConnection,
+    ...state,
+    isOffline: !state.isOnline,
   };
 }
