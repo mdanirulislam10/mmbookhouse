@@ -59,6 +59,14 @@ body {
   scrollbar-width: none;
 }
 
+/* Task 38 & 40: Native Touch Momentum & Physics Scrolling */
+.touch-scroll-momentum {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+
 /* Task 26: Bilingual Typography Helper Classes */
 .font-bengali {
   font-family: var(--font-bengali);

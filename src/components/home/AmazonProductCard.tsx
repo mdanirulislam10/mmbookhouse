@@ -7,6 +7,7 @@ import { CarouselProduct } from '@/types/carousel';
 import { useCart } from '@/hooks/useCartStore';
 import { getActiveDealForBook } from '@/lib/data/flashDeals';
 import { AmazonDealBadge } from '@/components/deals/AmazonDealBadge';
+import { AmazonRibbonBadge } from './AmazonRibbonBadge';
 import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
 import {
   Star,
@@ -99,7 +100,7 @@ export function AmazonProductCard({
             className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
           />
 
-          {/* Audit Point 4: Synchronized Deal Badge OR Bestseller Badge */}
+          {/* Audit Point 4 & Task 36: Deal Badge OR Amazon #1 Best Seller Signature Folded Ribbon */}
           {isDealActive ? (
             <div className="absolute top-2 left-2 z-10">
               <AmazonDealBadge
@@ -110,9 +111,18 @@ export function AmazonProductCard({
             </div>
           ) : (
             product.badgeBn && (
-              <div className="absolute top-2 left-2 z-10 bg-amber-500 text-gray-950 font-extrabold text-[10px] px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5" />
-                <span>{product.badgeBn}</span>
+              <div className="absolute top-2 left-0 z-10">
+                <AmazonRibbonBadge
+                  variant={
+                    product.badgeBn.includes('বেস্টসেলার') || product.badge === '#1 Best Seller'
+                      ? 'bestseller'
+                      : product.badgeBn.includes('মালদা')
+                      ? 'local_popular'
+                      : 'top_choice'
+                  }
+                  textBn={product.badgeBn}
+                  textEn={product.badge}
+                />
               </div>
             )
           )}

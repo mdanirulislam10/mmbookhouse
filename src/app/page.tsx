@@ -124,10 +124,11 @@ export default function HomePage() {
       {/* Module 4 Part 5: Amazon "Deal of the Day" & Flash Deals Engine (Tasks 21-25) */}
       <DealOfTheDayWidget className="mb-6 sm:mb-8" />
 
-      {/* Module 4 Part 7: Horizontal Product Row Carousels (Tasks 31 to 35) */}
+      {/* Module 4 Part 7 & 8: Horizontal Product Row Carousels (Tasks 31 to 40) */}
       <div className="space-y-6 sm:space-y-8 mb-6 sm:mb-8">
         <ProductCarousel collection={CAROUSEL_COLLECTIONS[0]} />
         <ProductCarousel collection={CAROUSEL_COLLECTIONS[1]} />
+        <ProductCarousel collection={CAROUSEL_COLLECTIONS[2]} />
       </div>
 
       {/* Module 4: Part 3 Verification & Quad Widget Architecture Highlights (Tasks 11 to 15) */}
@@ -600,6 +601,101 @@ export default function HomePage() {
             <h4 className="text-xs font-bold text-gray-900">কুইক ভিউ লাইটবক্স</h4>
             <p className="text-[11px] text-gray-600 leading-tight">
               কভার ক্লিকে লাইটবক্স মডাল, সূচিপত্র, স্পেসিফিকেশন প্রিভিউ, ডিল লিমিটেশন ও নিরাপদ ইনস্ট্যান্ট পারচেজ অ্যাকশন।
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Module 4: Part 8 Verification & Mobile Scrolling Snap & Local Curated Section (Tasks 36 to 40) */}
+      <section className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 gap-2">
+          <div className="flex items-center gap-2 text-gray-900 font-extrabold text-base">
+            <Smartphone className="w-5 h-5 text-amber-600" />
+            <span>মডিউল ৪ (ভাগ ৮: কাজ ৩৬ থেকে ৪০) মোবাইল স্ক্রোলিং স্ন্যাপ ও লোকাল কিউরেটেড সেকশন মেট্রিক্স</span>
+          </div>
+          <span className="text-xs font-bold text-amber-900 bg-amber-100 px-3 py-1 rounded-full w-fit">
+            ৫/৫ কাজ বাস্তবায়িত ও সক্রিয়
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Task 36 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-amber-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৩৬
+              </span>
+              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                #1 Ribbon
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">#১ বেস্টসেলার রিবন ব্যাজ</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              অ্যামাজন সিগনেচার `#e47911` ফোল্ডেড রিবন ডিজাইন, ট্রায়াঙ্গেল কর্নার শ্যাডো এবং টপ-লেফট অ্যাঙ্করিং।
+            </p>
+          </div>
+
+          {/* Task 37 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-amber-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৩৭
+              </span>
+              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                Item Windowing
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">আইটেম উইন্ডোয়িং ও ভিউ অল</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              প্রতি রো-তে সর্বোচ্চ ১৫-২০টি বইয়ের মেমরি লিমিটেশন এবং শেষে রেসপন্সিভ "সকল ক্যাটালগ →" কার্ড।
+            </p>
+          </div>
+
+          {/* Task 38 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-amber-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৩৮
+              </span>
+              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                Scroll-Snap
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">CSS Scroll-Snap প্রিসিশন</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              `snap-x snap-mandatory` ও `snap-center sm:snap-start` মেকানিক্সে মোবাইলে কার্ড মাঝখানে নিখুঁত স্টপিং।
+            </p>
+          </div>
+
+          {/* Task 39 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-amber-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৩৯
+              </span>
+              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                Malda Curation
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">মালদার শিক্ষার্থীদের পছন্দ</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              মালদা কলেজ, গৌড়বঙ্গ বিশ্ববিদ্যালয় ও স্থানীয় শিক্ষা প্রতিষ্ঠানের সর্বাধিক চাহিদাসম্পন্ন লোকাল কিউরেশন।
+            </p>
+          </div>
+
+          {/* Task 40 */}
+          <div className="p-3.5 bg-gray-50 rounded-lg border border-gray-200 space-y-1.5 hover:border-amber-400 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold">
+                ৪০
+              </span>
+              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                Touch Momentum
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-gray-900">নেটিভ টাচ মোমেন্টাম</h4>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              `-webkit-overflow-scrolling: touch` ও `touch-pan-x` দ্বারা আইওএস ও অ্যান্ড্রয়েডে সাবলীল ফ্লিক স্ক্রোলিং।
             </p>
           </div>
         </div>
