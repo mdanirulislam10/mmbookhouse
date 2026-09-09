@@ -1,0 +1,214 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #eaeded;
+  --foreground: #0f1111;
+  --font-bengali: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+  --font-outfit: 'Outfit', 'Inter', system-ui, sans-serif;
+  --drawer-bg-light: #ffffff;
+  --drawer-bg-dark: #1e293b;
+  --drawer-text-light: #1f2937;
+  --drawer-text-dark: #f1f5f9;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-bengali);
+  line-height: 1.55;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Amazon Signature Hover Box Effect */
+.amazon-nav-box {
+  padding: 6px 9px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease-in-out;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.amazon-nav-box:hover {
+  border-color: #ffffff;
+}
+
+/* Focus outline for accessibility */
+.amazon-nav-box:focus-visible {
+  outline: 2px solid #febd69;
+  outline-offset: 1px;
+}
+
+/* Utility to hide scrollbar while keeping scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Task 26: Bilingual Typography Helper Classes */
+.font-bengali {
+  font-family: var(--font-bengali);
+}
+
+.font-outfit {
+  font-family: var(--font-outfit);
+}
+
+/* Task 28: Amazon Drawer Menu Item Micro-Interaction */
+.drawer-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.65rem 1.5rem;
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.5;
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.drawer-menu-item:hover {
+  background-color: #f3f4f6;
+  color: #0f1111;
+}
+
+.dark .drawer-menu-item:hover {
+  background-color: rgba(51, 65, 85, 0.7);
+  color: #ffffff;
+}
+
+.drawer-menu-item .menu-label {
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer-menu-item:hover .menu-label {
+  transform: translateX(4px);
+}
+
+.drawer-menu-item .menu-icon {
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.drawer-menu-item:hover .menu-icon {
+  color: #d97706; /* amber-600 */
+  transform: scale(1.1);
+}
+
+.drawer-menu-item .menu-arrow {
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.drawer-menu-item:hover .menu-arrow {
+  color: #1f2937;
+  transform: translateX(3px);
+}
+
+.dark .drawer-menu-item:hover .menu-arrow {
+  color: #f1f5f9;
+}
+
+/* Task 30: Clean 1px Separators */
+.drawer-divider {
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 0.35rem 0;
+}
+
+.dark .drawer-divider {
+  background-color: rgba(71, 85, 105, 0.5);
+}
+
+/* Task 41: GPU Hardware-Accelerated 3D Transforms (60fps/120fps smooth compositor layers) */
+.drawer-canvas-gpu {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translate3d(-100%, 0, 0);
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.drawer-canvas-gpu.drawer-canvas-open {
+  transform: translate3d(0, 0, 0);
+}
+
+.drawer-panel-layer {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.drawer-panel-center {
+  transform: translate3d(0, 0, 0);
+}
+
+.drawer-panel-left {
+  transform: translate3d(-100%, 0, 0);
+}
+
+.drawer-panel-right {
+  transform: translate3d(100%, 0, 0);
+}
+
+/* Task 42: Custom 4px Slim Scrollbar for Long Category Lists */
+.slim-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+.dark .slim-scrollbar {
+  scrollbar-color: rgba(100, 116, 139, 0.4) transparent;
+}
+
+.slim-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.slim-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.slim-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.slim-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.75);
+}
+
+.dark .slim-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+}
+
+.dark .slim-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.75);
+}
+
+@media (forced-colors: active) {
+  .slim-scrollbar {
+    scrollbar-color: Highlight transparent;
+  }
+  .slim-scrollbar::-webkit-scrollbar-thumb {
+    background: Highlight;
+  }
+}
+

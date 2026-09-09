@@ -1,0 +1,155 @@
+'use client';
+
+import React, { useState } from 'react';
+import { ChevronRight, ChevronDown, BookOpen, Layers, Check } from 'lucide-react';
+import { HierarchyCategoryNode } from '@/types/catalog-filter';
+import { toBengaliNumerals } from '@/lib/utils/currency';
+
+interface SubjectHierarchyFilterProps {
+  categories: HierarchyCategoryNode[];
+  selectedCategory: string;
+  selectedSubCategory?: string;
+  onSelectCategory: (categoryId: string, subCategoryId?: string) => void;
+  isBengali?: boolean;
+}
+
+export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
+  categories,
+  selectedCategory,
+  selectedSubCategory,
+  onSelectCategory,
+  isBengali = true,
+}) => {
+  // Store which parent categories are expanded
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>(() => {
+    // Auto-expand the currently selected category or the first two by default
+    const init: Record<string, boolean> = {};
+    categories.forEach((cat, idx) => {
+      if (cat.id === selectedCategory || idx < 2) {
+        init[cat.id] = true;
+      }
+    });
+    return init;
+  });
+
+  const toggleExpand = (e: React.MouseEvent, categoryId: string) => {
+    e.stopPropagation();
+    setExpandedNodes((prev) => ({
+      ...prev,
+      [categoryId]: !prev[categoryId],
+    }));
+  };
+
+  return (
+    <div className="space-y-1 text-xs select-none">
+      {/* "All Categories / Subjects" Root Option */}
+      <button
+        type="button"
+        onClick={() => onSelectCategory('all', undefined)}
+        className={`w-full flex items-center justify-between py-1.5 px-2 rounded-md transition-colors text-left cursor-pointer ${
+          selectedCategory === 'all' || !selectedCategory
+            ? 'bg-amber-100/80 text-amber-950 font-bold'
+            : 'text-gray-700 hover:bg-gray-100/80 hover:text-gray-950'
+        }`}
+      >
+        <div className="flex items-center gap-1.5">
+          <BookOpen className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+          <span>{isBengali ? 'সকল বিষয় ও পরীক্ষা' : 'All Subjects & Exams'}</span>
+        </div>
+        {(selectedCategory === 'all' || !selectedCategory) && (
+          <Check className="w-3.5 h-3.5 text-amber-700" />
+        )}
+      </button>
+
+      {/* Hierarchical Categories Tree */}
+      <div className="space-y-1 pt-1">
+        {categories.map((cat) => {
+          const isCatSelected = selectedCategory === cat.id;
+          const isExpanded = !!expandedNodes[cat.id];
+          const hasSub = cat.subCategories && cat.subCategories.length > 0;
+
+          return (
+            <div key={cat.id} className="space-y-0.5">
+              {/* Parent Category Row */}
+              <div
+                onClick={() => onSelectCategory(cat.id, undefined)}
+                className={`group flex items-center justify-between py-1.5 px-2 rounded-md transition-colors cursor-pointer ${
+                  isCatSelected && !selectedSubCategory
+                    ? 'bg-amber-50 text-amber-900 font-bold border border-amber-200/90'
+                    : isCatSelected
+                    ? 'text-amber-900 font-semibold bg-amber-50/40'
+                    : 'text-gray-700 hover:bg-gray-100/70 hover:text-gray-950'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  {hasSub ? (
+                    <button
+                      type="button"
+                      onClick={(e) => toggleExpand(e, cat.id)}
+                      aria-label="Expand category sub-levels"
+                      className="p-0.5 rounded text-gray-400 hover:text-amber-700 hover:bg-amber-100/50 transition-colors"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  ) : (
+                    <span className="w-3.5" />
+                  )}
+
+                  <span className="truncate">
+                    {isBengali ? cat.labelBn : cat.label}
+                  </span>
+                </div>
+
+                <span className="text-[10px] text-gray-400 font-normal shrink-0 pl-1.5">
+                  ({isBengali ? toBengaliNumerals(cat.count) : cat.count})
+                </span>
+              </div>
+
+              {/* Subcategories (Level 2 Drill-down) */}
+              {hasSub && isExpanded && (
+                <div className="ml-4 pl-2.5 border-l-2 border-amber-200/70 space-y-0.5 py-0.5 animate-in fade-in duration-150">
+                  {cat.subCategories.map((sub) => {
+                    const isSubSelected =
+                      selectedCategory === cat.id && selectedSubCategory === sub.id;
+
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => onSelectCategory(cat.id, sub.id)}
+                        className={`w-full flex items-center justify-between py-1 px-2 rounded text-left transition-colors cursor-pointer ${
+                          isSubSelected
+                            ? 'bg-amber-600 text-white font-bold shadow-2xs'
+                            : 'text-gray-600 hover:bg-amber-50 hover:text-amber-900'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <Layers className={`w-3 h-3 shrink-0 ${isSubSelected ? 'text-amber-200' : 'text-gray-400'}`} />
+                          <span className="truncate text-[11px]">
+                            {isBengali ? sub.labelBn : sub.label}
+                          </span>
+                        </div>
+
+                        <span
+                          className={`text-[10px] shrink-0 pl-1 ${
+                            isSubSelected ? 'text-amber-100' : 'text-gray-400'
+                          }`}
+                        >
+                          ({isBengali ? toBengaliNumerals(sub.count) : sub.count})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
