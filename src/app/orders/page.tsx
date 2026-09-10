@@ -1,7 +1,8 @@
-﻿import React from 'react';
+import React from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Package, Clock, CheckCircle2, Truck, ChevronRight, Home, PhoneCall, ArrowRight, BookOpen } from 'lucide-react';
+import { OrderHelpWhatsAppButton } from '@/components/orders/OrderHelpWhatsAppButton';
 
 export const metadata: Metadata = {
   title: 'আপনার সমস্ত অর্ডার ও ট্র্যাকিং | M.M Book House Malda',
@@ -153,12 +154,18 @@ export default function OrdersPage() {
               <span className="text-gray-500">
                 ডেলিভারি সংক্রান্ত জরুরি প্রয়োজনে কল করুন: <strong className="text-amber-600">+91 98001 23456</strong>
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <OrderHelpWhatsAppButton
+                  orderId={order.orderId}
+                  orderDate={order.date}
+                  totalAmount={order.totalAmount}
+                  items={order.items}
+                />
                 <Link
                   href="/support"
                   className="px-3.5 py-1.5 bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold rounded shadow-2xs transition-colors"
                 >
-                  সহায়তা দরকার?
+                  সহায়তা কেন্দ্র
                 </Link>
                 <Link
                   href="/"
