@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, X, CheckCircle2, AlertCircle, Clock, Store, Navigation } from 'lucide-react';
-import { lookupPincode } from '@/hooks/useDeliveryLocation';
+import { lookupPincode, toEnglishDigits } from '@/hooks/useDeliveryLocation';
 import { PincodeInfo, FulfillmentMode } from '@/types/header';
 import { PickupToggle } from './PickupToggle';
 
@@ -84,7 +84,8 @@ export const PincodeModal: React.FC<PincodeModalProps> = ({
       autoCloseTimeoutRef.current = null;
     }
 
-    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const normalized = toEnglishDigits(e.target.value);
+    const val = normalized.replace(/\D/g, '').slice(0, 6);
     setInputCode(val);
     setError(null);
 

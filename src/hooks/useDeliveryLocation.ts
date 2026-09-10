@@ -1,29 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { DeliveryLocationState, PincodeInfo, FulfillmentMode } from '@/types/header';
+import {
+  lookupPincodeServiceability,
+  getDeliveryPincodeCookie,
+  setDeliveryPincodeCookie,
+  validateIndianPincode,
+  normalizePincodeDigits,
+  DEFAULT_PINCODE,
+} from '@/lib/data/pincodeData';
 
 const STORAGE_KEY = 'mm_delivery_location';
-
-// Curated list of West Bengal and nearby pincodes for immediate, instant validation
-const KNOWN_PINCODES: Record<string, { area: string; district: string; state: string; days: string }> = {
-  '732101': { area: 'English Bazar (Malda Town)', district: 'Malda', state: 'West Bengal', days: 'Same-day / 24 Hours' },
-  '732102': { area: 'Old Malda', district: 'Malda', state: 'West Bengal', days: '24 Hours' },
-  '732103': { area: 'Mangalbari', district: 'Malda', state: 'West Bengal', days: '24 Hours' },
-  '732124': { area: 'Chanchal', district: 'Malda', state: 'West Bengal', days: '1-2 Days' },
-  '732125': { area: 'Gazole', district: 'Malda', state: 'West Bengal', days: '1-2 Days' },
-  '732138': { area: 'Ratua', district: 'Malda', state: 'West Bengal', days: '1-2 Days' },
-  '732142': { area: 'Samsi', district: 'Malda', state: 'West Bengal', days: '1-2 Days' },
-  '732201': { area: 'Kaliachak', district: 'Malda', state: 'West Bengal', days: '1-2 Days' },
-  '734001': { area: 'Siliguri Town', district: 'Darjeeling', state: 'West Bengal', days: '2 Days' },
-  '700001': { area: 'Kolkata GPO', district: 'Kolkata', state: 'West Bengal', days: '2-3 Days' },
-  '700073': { area: 'College Street (Boipara)', district: 'Kolkata', state: 'West Bengal', days: '2-3 Days' },
-  '742101': { area: 'Berhampore', district: 'Murshidabad', state: 'West Bengal', days: '2 Days' },
-  '713201': { area: 'Durgapur', district: 'Paschim Bardhaman', state: 'West Bengal', days: '3 Days' },
-};
+const CHANNEL_NAME = 'mm_delivery_location_channel';
 
 export const DEFAULT_LOCATION: DeliveryLocationState = {
-  pincode: '732101',
+  pincode: DEFAULT_PINCODE,
   area: 'English Bazar (Malda Town)',
   district: 'Malda',
   state: 'West Bengal',
@@ -32,127 +25,168 @@ export const DEFAULT_LOCATION: DeliveryLocationState = {
   fulfillmentMode: 'delivery',
 };
 
+/**
+ * Normalizes input string by converting any Bengali script digits (০-৯) to ASCII digits (0-9).
+ */
+export function toEnglishDigits(input: string): string {
+  return normalizePincodeDigits(input);
+}
+
+/**
+ * Pincode validator & lookup returning PincodeInfo for Header & Components
+ */
 export function lookupPincode(pincode: string): PincodeInfo | null {
-  const clean = pincode.trim();
-  if (!/^[1-9][0-9]{5}$/.test(clean)) {
+  const validation = validateIndianPincode(pincode);
+  if (!validation.isValid) {
     return null;
   }
 
-  const known = KNOWN_PINCODES[clean];
-  if (known) {
-    return {
-      pincode: clean,
-      area: known.area,
-      district: known.district,
-      state: known.state,
-      isDeliverable: true,
-      isCodAvailable: true,
-      estimatedDeliveryText: known.days,
-    };
-  }
-
-  // Generic valid Indian pincode (delivery available via India Post / Delhivery)
+  const result = lookupPincodeServiceability(validation.normalizedPincode);
   return {
-    pincode: clean,
-    area: 'Local Area',
-    district: 'India Delivery',
-    state: clean.startsWith('7') ? 'West Bengal / Eastern Region' : 'India',
-    isDeliverable: true,
-    isCodAvailable: true,
-    estimatedDeliveryText: '3-5 Days (India Post)',
+    pincode: result.pincode,
+    area: result.area,
+    district: result.district,
+    state: result.state,
+    isDeliverable: result.isDeliverable,
+    isCodAvailable: result.isCodAvailable,
+    estimatedDeliveryText: result.deliveryDateTextBn,
   };
 }
 
-export function useDeliveryLocation() {
-  const [location, setLocation] = useState<DeliveryLocationState>(DEFAULT_LOCATION);
-  const [isInitialized, setIsInitialized] = useState(false);
+let locationBroadcastChannel: BroadcastChannel | null = null;
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    locationBroadcastChannel = new BroadcastChannel(CHANNEL_NAME);
+  } catch {
+    locationBroadcastChannel = null;
+  }
+}
 
-  // Initialize from localStorage or fallback
-  useEffect(() => {
+function notifyTabsOfLocationChange(payload: DeliveryLocationState) {
+  if (locationBroadcastChannel) {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as DeliveryLocationState;
-        if (parsed.pincode && /^[1-9][0-9]{5}$/.test(parsed.pincode)) {
-          setLocation({
-            ...parsed,
-            area: parsed.area || 'Malda',
-            district: parsed.district || 'Malda',
-            state: parsed.state || 'West Bengal',
-            fulfillmentMode: parsed.fulfillmentMode === 'pickup' ? 'pickup' : 'delivery',
-          });
-          setIsInitialized(true);
-          return;
+      locationBroadcastChannel.postMessage({
+        type: 'LOCATION_UPDATED',
+        location: payload,
+        timestamp: Date.now(),
+      });
+    } catch {
+      // Ignore broadcast channel errors in restricted environments
+    }
+  }
+}
+
+interface DeliveryLocationStore {
+  location: DeliveryLocationState;
+  updatePincode: (pincode: string, customerName?: string) => boolean;
+  setFulfillmentMode: (mode: FulfillmentMode) => void;
+  resetToDefault: () => void;
+  setDirectLocation: (newLocation: DeliveryLocationState) => void;
+}
+
+export const useDeliveryLocationStore = create<DeliveryLocationStore>()(
+  persist(
+    (set, get) => ({
+      location: DEFAULT_LOCATION,
+
+      updatePincode: (pincode: string, customerName?: string) => {
+        const info = lookupPincode(pincode);
+        if (!info) {
+          return false;
+        }
+
+        const prev = get().location;
+        const newLocation: DeliveryLocationState = {
+          pincode: info.pincode,
+          area: info.area,
+          district: info.district,
+          state: info.state,
+          isDetecting: false,
+          source: customerName ? 'user_profile' : 'user_input',
+          customerName: customerName ?? prev.customerName,
+          fulfillmentMode: prev.fulfillmentMode || 'delivery',
+        };
+
+        set({ location: newLocation });
+        // Task 2: Synchronize to Cookie (mm_pincode) as well as localStorage
+        setDeliveryPincodeCookie(info.pincode);
+        // Task 3: Broadcast to Header & Other Tabs
+        notifyTabsOfLocationChange(newLocation);
+        return true;
+      },
+
+      setFulfillmentMode: (mode: FulfillmentMode) => {
+        const prev = get().location;
+        const updated: DeliveryLocationState = {
+          ...prev,
+          fulfillmentMode: mode,
+        };
+        set({ location: updated });
+        notifyTabsOfLocationChange(updated);
+      },
+
+      resetToDefault: () => {
+        set({ location: DEFAULT_LOCATION });
+        setDeliveryPincodeCookie(DEFAULT_LOCATION.pincode);
+        notifyTabsOfLocationChange(DEFAULT_LOCATION);
+      },
+
+      setDirectLocation: (newLocation: DeliveryLocationState) => {
+        set({ location: newLocation });
+        setDeliveryPincodeCookie(newLocation.pincode);
+      },
+    }),
+    {
+      name: STORAGE_KEY,
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+
+// Cross-tab synchronization listener (Task 3: BroadcastChannel Sync)
+if (typeof window !== 'undefined' && locationBroadcastChannel) {
+  locationBroadcastChannel.onmessage = (event) => {
+    if (event.data?.type === 'LOCATION_UPDATED' && event.data?.location) {
+      useDeliveryLocationStore.getState().setDirectLocation(event.data.location);
+    }
+  };
+}
+
+// Initial Sync from Cookie if present on client startup (Task 2)
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    try {
+      const cookiePin = getDeliveryPincodeCookie();
+      if (cookiePin) {
+        const current = useDeliveryLocationStore.getState().location;
+        if (current.pincode !== cookiePin) {
+          useDeliveryLocationStore.getState().updatePincode(cookiePin);
         }
       }
     } catch {
-      // LocalStorage access disabled or error
+      // Quiet fail if cookie reading fails
     }
+  }, 50);
+}
 
-    // Default fallback
-    setLocation(DEFAULT_LOCATION);
-    setIsInitialized(true);
-  }, []);
+// Atomic Selectors for Performance & Optimization
+export const useDeliveryLocationData = () => useDeliveryLocationStore((state) => state.location);
+export const useDeliveryPincode = () => useDeliveryLocationStore((state) => state.location.pincode);
+export const useFulfillmentMode = () => useDeliveryLocationStore((state) => state.location.fulfillmentMode);
+export const useDeliveryCustomerName = () => useDeliveryLocationStore((state) => state.location.customerName);
 
-  // Update pincode and save to localStorage while preserving current fulfillmentMode
-  const updatePincode = useCallback((pincode: string, customerName?: string) => {
-    const info = lookupPincode(pincode);
-    if (!info) {
-      return false;
-    }
-
-    setLocation((prev) => {
-      const newLocation: DeliveryLocationState = {
-        pincode: info.pincode,
-        area: info.area,
-        district: info.district,
-        state: info.state,
-        isDetecting: false,
-        source: customerName ? 'user_profile' : 'user_input',
-        customerName: customerName ?? prev.customerName,
-        fulfillmentMode: prev.fulfillmentMode || 'delivery',
-      };
-
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newLocation));
-      } catch {
-        // Ignore
-      }
-
-      return newLocation;
-    });
-
-    return true;
-  }, []);
-
-  // Task 9: Toggle between 'delivery' and 'pickup' without losing other fields
-  const setFulfillmentMode = useCallback((mode: FulfillmentMode) => {
-    setLocation((prev) => {
-      const updated: DeliveryLocationState = {
-        ...prev,
-        fulfillmentMode: mode,
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore
-      }
-      return updated;
-    });
-  }, []);
-
-  const resetToDefault = useCallback(() => {
-    setLocation(DEFAULT_LOCATION);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // Ignore
-    }
-  }, []);
+/**
+ * Unified hook for components
+ */
+export function useDeliveryLocation() {
+  const location = useDeliveryLocationStore((state) => state.location);
+  const updatePincode = useDeliveryLocationStore((state) => state.updatePincode);
+  const setFulfillmentMode = useDeliveryLocationStore((state) => state.setFulfillmentMode);
+  const resetToDefault = useDeliveryLocationStore((state) => state.resetToDefault);
 
   return {
     location,
-    isInitialized,
+    isInitialized: true,
     updatePincode,
     setFulfillmentMode,
     resetToDefault,
