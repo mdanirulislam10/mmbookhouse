@@ -30,10 +30,12 @@ export const HamburgerTrigger: React.FC<HamburgerTriggerProps> = ({
 
   const displayLabel = label || (language === 'bn' ? 'সকল বিভাগ' : 'All Departments');
 
-
   const handleClick = () => {
-    onClick?.();
-    openDrawer();
+    if (onClick) {
+      onClick();
+    } else {
+      openDrawer();
+    }
   };
 
   return (
@@ -44,9 +46,9 @@ export const HamburgerTrigger: React.FC<HamburgerTriggerProps> = ({
       aria-expanded={isOpen}
       aria-haspopup="dialog"
       aria-controls="category-mega-drawer"
-      aria-label={`${displayLabel} - মেগা মেনু খুলুন`}
+      aria-label={language === 'bn' ? `${displayLabel} - মেগা মেনু খুলুন` : `${displayLabel} - Open Mega Menu`}
       data-drawer-trigger="category"
-      className={`amazon-nav-box flex items-center gap-1.5 py-1 px-2 font-bold text-white transition-colors cursor-pointer select-none focus:outline-none focus:ring-1 focus:ring-amber-400 ${className}`}
+      className={`amazon-nav-box flex items-center gap-1.5 min-h-[36px] sm:min-h-[30px] py-1 px-2 font-bold text-white transition-colors cursor-pointer select-none focus:outline-none focus:ring-1 focus:ring-amber-400 ${className}`}
     >
       {showIcon && <Menu className="w-4 h-4 shrink-0 text-white" aria-hidden="true" />}
       <span className="text-xs tracking-tight">{displayLabel}</span>

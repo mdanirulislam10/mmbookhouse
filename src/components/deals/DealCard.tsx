@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ShoppingCart, Clock, Check, AlertTriangle, RefreshCw, Star, Bell, Sparkles } from 'lucide-react';
 import { DealItem } from '@/types/deal';
 import { useDealCountdown } from '@/hooks/useDealCountdown';
@@ -101,26 +102,32 @@ export const DealCard: React.FC<DealCardProps> = ({ deal }) => {
           </div>
         </div>
 
-        {/* Book Cover Image with Zoom Container */}
-        <div className="relative aspect-[4/3] w-full mb-3 rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center">
+        {/* Book Cover Image with Zoom Container and Direct PDP Link (Task 28) */}
+        <Link
+          href={`/book/${deal.bookId}`}
+          className="relative aspect-[4/3] w-full mb-3 rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center block group/img"
+          title={`${deal.titleBn} এর বিস্তারিত বিবরণী দেখুন`}
+        >
           <Image
             src={deal.coverImage}
             alt={deal.titleBn}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
-            className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            className="object-cover object-center group-hover/img:scale-105 transition-transform duration-300"
           />
 
           {/* Sub-category tag */}
           <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold font-bengali">
             {deal.categoryBn}
           </span>
-        </div>
+        </Link>
 
         {/* Title and Author */}
         <div className="space-y-1 mb-3">
           <h4 className="text-sm sm:text-base font-bold text-gray-950 font-bengali line-clamp-2 leading-snug group-hover:text-amber-800 transition-colors">
-            {deal.titleBn}
+            <Link href={`/book/${deal.bookId}`} className="hover:underline">
+              {deal.titleBn}
+            </Link>
           </h4>
           <p className="text-xs text-gray-500 font-bengali line-clamp-1">
             {deal.authorBn}
@@ -269,8 +276,8 @@ export const DealCard: React.FC<DealCardProps> = ({ deal }) => {
           </button>
         )}
 
-        {/* Sub-label and Test Simulator Controls */}
-        <div className="flex items-center justify-between text-[10px] text-gray-400 px-1">
+        {/* Sub-label and customer purchase policy */}
+        <div className="flex items-center justify-between text-[10px] text-gray-500 px-1">
           <span className="font-bengali">
             {isUpcoming
               ? isNotified
@@ -280,15 +287,6 @@ export const DealCard: React.FC<DealCardProps> = ({ deal }) => {
               ? '🔒 প্রতি গ্রাহক ১টি কপি প্রযোজ্য'
               : '⚡ ফ্ল্যাশ ডিল: প্রতি অর্ডারে ১টি কপি'}
           </span>
-          <button
-            type="button"
-            onClick={handleToggleTest}
-            className="text-gray-500 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer font-bengali"
-            title="টাস্ক ২৪ পরীক্ষা করতে ডিল এক্সপায়ারি ও রিস্টোরেশন টগল করুন"
-          >
-            <RefreshCw className="w-2.5 h-2.5" />
-            <span>{isExpired ? 'ডিল পুনরায় সক্রিয়' : 'এক্সপায়ারি টেস্ট'}</span>
-          </button>
         </div>
       </div>
     </div>

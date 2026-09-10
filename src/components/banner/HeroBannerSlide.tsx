@@ -15,24 +15,9 @@ interface HeroBannerSlideProps {
   onBannerClick?: (banner: HeroBanner) => void;
 }
 
-// Issue 8 Fix: Lightweight Shimmer SVG for smooth blurDataURL loading preview
-const shimmerSvg = (w: number, h: number) => `
-<svg width="${w}" height="${h}" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-  <defs>
-    <linearGradient id="g">
-      <stop stop-color="#1e293b" offset="20%" />
-      <stop stop-color="#334155" offset="50%" />
-      <stop stop-color="#1e293b" offset="70%" />
-    </linearGradient>
-  </defs>
-  <rect width="${w}" height="${h}" fill="#1e293b" />
-  <rect id="r" width="${w}" height="${h}" fill="url(#g)" />
-</svg>`;
-
-const toBase64 = (str: string) =>
-  typeof window === 'undefined' ? Buffer.from(str).toString('base64') : window.btoa(str);
-
-const SHIMMER_BLUR_DATA_URL = `data:image/svg+xml;base64,${toBase64(shimmerSvg(700, 475))}`;
+// Safe Data URL for smooth blurDataURL loading preview without Buffer/btoa dependency
+const SHIMMER_BLUR_DATA_URL =
+  'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20700%20475%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%3E%3Cstop%20stop-color%3D%22%231e293b%22%20offset%3D%2220%25%22%2F%3E%3Cstop%20stop-color%3D%22%23334155%22%20offset%3D%2250%25%22%2F%3E%3Cstop%20stop-color%3D%22%231e293b%22%20offset%3D%2270%25%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22700%22%20height%3D%22475%22%20fill%3D%22%231e293b%22%2F%3E%3Crect%20id%3D%22r%22%20width%3D%22700%22%20height%3D%22475%22%20fill%3D%22url(%23g)%22%2F%3E%3C%2Fsvg%3E';
 
 export const HeroBannerSlide: React.FC<HeroBannerSlideProps> = ({
   banner,
@@ -52,13 +37,22 @@ export const HeroBannerSlide: React.FC<HeroBannerSlideProps> = ({
     : '';
 
   return (
-    <div
+    <article
       className={`relative w-full h-full flex-shrink-0 select-none overflow-hidden bg-gradient-to-r ${banner.bgGradient}`}
       role="group"
       aria-roledescription="slide"
       aria-label={banner.titleBn}
       aria-hidden={!isActive}
+      itemScope
+      itemType="https://schema.org/SpecialAnnouncement"
     >
+      {/* Task 46: Schema.org Microdata Meta for SEO Crawler Ingestion */}
+      <meta itemProp="name" content={banner.titleBn} />
+      <meta itemProp="headline" content={banner.titleBn} />
+      <meta itemProp="description" content={banner.descriptionBn || banner.subtitleBn} />
+      <meta itemProp="url" content={banner.targetUrl} />
+      <meta itemProp="category" content="Bookstore Promotions Malda" />
+
       {/* Issue 5 Fix: Full-Bleed Clickable Link Overlay (Amazon Pattern) */}
       <Link
         href={banner.targetUrl}
@@ -127,22 +121,38 @@ export const HeroBannerSlide: React.FC<HeroBannerSlideProps> = ({
             </div>
           )}
 
-          {/* Title */}
-          <h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight font-bengali drop-shadow-sm">
+          {/* Task 46: SEO Hybrid Heading with itemprop and high-contrast shadow */}
+          <h2
+            itemProp="name"
+            className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight font-bengali drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] [text-shadow:_0_1px_12px_rgb(0_0_0_/_70%)]"
+          >
             {banner.titleBn}
           </h2>
 
           {/* Subtitle */}
-          <p className="text-xs sm:text-sm md:text-base text-amber-200 font-semibold font-bengali leading-snug">
+          <p
+            itemProp="alternateName"
+            className="text-xs sm:text-sm md:text-base text-amber-200 font-semibold font-bengali leading-snug drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+          >
             {banner.subtitleBn}
           </p>
 
           {/* Short Description */}
           {banner.descriptionBn && (
-            <p className="text-[11px] sm:text-xs md:text-sm text-gray-200/90 font-bengali max-w-xl line-clamp-2 sm:line-clamp-3 leading-relaxed">
+            <p
+              itemProp="description"
+              className="text-[11px] sm:text-xs md:text-sm text-gray-100 font-bengali max-w-xl line-clamp-2 sm:line-clamp-3 leading-relaxed drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+            >
               {banner.descriptionBn}
             </p>
           )}
+
+          {/* Task 46: High-Value Local Keywords for Search Engine Crawlers & Screen Readers */}
+          <div className="sr-only" aria-hidden="false">
+            <p>
+              M.M Book House Malda বিশেষ বইয়ের অফার: {banner.titleBn} — {banner.subtitleBn}। {banner.descriptionBn}। মালদা কলেজ, গৌড়বঙ্গ বিশ্ববিদ্যালয় এবং সমস্ত প্রতিযোগিতামূলক পরীক্ষার বই দ্রুততম হোম ডেলিভারিতে পান।
+            </p>
+          </div>
 
           {/* Task 9 & Issue 4 Fix: Call To Action (CTA) with TabIndex Management */}
           <div className="pt-1 sm:pt-2">
@@ -164,6 +174,6 @@ export const HeroBannerSlide: React.FC<HeroBannerSlideProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 };

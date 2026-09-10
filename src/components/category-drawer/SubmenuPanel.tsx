@@ -16,13 +16,16 @@ import {
   School, 
   Medal, 
   Compass, 
-  BookMarked 
+  BookMarked,
+  Sparkles,
+  Tablet 
 } from 'lucide-react';
 import { CategoryItem } from '@/types/category-drawer';
 import { DEPARTMENT_SUBCATEGORIES } from './departmentData';
 import { useCategoryPrefetch } from '@/hooks/useCategoryPrefetch';
 import { useCategoryAnalytics } from '@/hooks/useCategoryAnalytics';
 import { useCategoryHistory } from '@/hooks/useCategoryHistory';
+import { useLanguage } from '@/hooks/useLanguage';
 import { CategoryBadge } from './CategoryBadge';
 
 interface SubmenuPanelProps {
@@ -55,14 +58,16 @@ export const SubmenuPanel: React.FC<SubmenuPanelProps> = ({
   const { prefetchUrl } = useCategoryPrefetch();
   const { trackCategoryEvent } = useCategoryAnalytics();
   const { recordCategoryVisit } = useCategoryHistory();
+  const { language } = useLanguage();
 
   const handleSubcategoryNavigate = (e: React.MouseEvent, url: string, subItem: CategoryItem) => {
     e.preventDefault();
-    recordCategoryVisit(subItem.id, subItem.slug, subItem.titleBn || subItem.title);
+    const itemTitle = language === 'en' ? subItem.title : (subItem.titleBn || subItem.title);
+    recordCategoryVisit(subItem.id, subItem.slug, itemTitle);
     trackCategoryEvent({
       event: 'subcategory_click',
       categoryId: subItem.id,
-      categoryTitle: subItem.titleBn || subItem.title,
+      categoryTitle: itemTitle,
       slug: url,
       source: 'drawer',
     });
@@ -75,7 +80,6 @@ export const SubmenuPanel: React.FC<SubmenuPanelProps> = ({
       }, 60);
     }
   };
-
 
   // Point 8: Support DB UUIDs, embedded activeDepartment.subcategories, and slug lookups
   const subcategories =
@@ -125,8 +129,12 @@ export const SubmenuPanel: React.FC<SubmenuPanelProps> = ({
     if (slug.includes('police') || slug.includes('defense')) return ShieldCheck;
     if (slug.includes('rail') || slug.includes('ssc') || slug.includes('job') || slug.includes('tet')) return Medal;
     if (slug.includes('lit') || slug.includes('story') || slug.includes('novel')) return BookOpen;
+    if (slug.includes('special') || slug.includes('heritage') || slug.includes('boxset') || slug.includes('rare')) return Sparkles;
+    if (slug.includes('ebook') || slug.includes('syllabus') || slug.includes('pdf') || slug.includes('periodical')) return Tablet;
     return BookMarked;
   };
+
+  const deptDisplayTitle = language === 'en' ? activeDepartment.title : (activeDepartment.titleBn || activeDepartment.title);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1e293b] text-gray-800 dark:text-slate-100 font-bengali select-none">
@@ -136,11 +144,13 @@ export const SubmenuPanel: React.FC<SubmenuPanelProps> = ({
         id="submenu-back-button"
         type="button"
         onClick={onBack}
-        aria-label="মূল মেনুতে ফিরে যান"
+        aria-label={language === 'bn' ? 'মূল মেনুতে ফিরে যান' : 'Back to Main Menu'}
         className="flex items-center gap-2.5 px-6 py-3.5 bg-gray-50 dark:bg-slate-800/80 border-b border-gray-200 dark:border-slate-700/60 text-gray-800 dark:text-slate-200 hover:text-gray-950 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/80 font-bold text-xs tracking-wider uppercase font-bengali transition-all cursor-pointer group focus:outline-none focus:bg-gray-100 dark:focus:bg-slate-700 focus:ring-1 focus:ring-amber-400"
       >
         <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:-translate-x-1 transition-all duration-150" />
-        <span className="group-hover:text-gray-950 dark:group-hover:text-white">প্রধান মেনু (MAIN MENU)</span>
+        <span className="group-hover:text-gray-950 dark:group-hover:text-white">
+          {language === 'bn' ? 'প্রধান মেনু (MAIN MENU)' : 'MAIN MENU'}
+        </span>
       </button>
 
       {/* Current Department Header */}
@@ -148,18 +158,17 @@ export const SubmenuPanel: React.FC<SubmenuPanelProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100 truncate">
-            {activeDepartment.titleBn || activeDepartment.title}
+            {deptDisplayTitle}
           </h3>
         </div>
       </div>
 
       {/* Subcategories List - Task 42: Slim Scrollbar & Task 44: Semantic Accessible Nav */}
       <nav 
-        aria-label={`${activeDepartment.titleBn || activeDepartment.title} সাব-ক্যাটাগরি`}
+        aria-label={`${deptDisplayTitle} ${language === 'bn' ? 'সাব-ক্যাটাগরি' : 'Subcategories'}`}
         className="flex-1 overflow-y-auto overscroll-contain slim-scrollbar py-2"
       >
         <ul className="space-y-0.5">
-
           {subcategories.map((subItem) => {
             const targetUrl =
               subItem.fullPath ||
@@ -168,6 +177,7 @@ export const SubmenuPanel: React.FC<SubmenuPanelProps> = ({
                 : `/category/${subItem.slug}`);
 
             const SubIcon = getSubcategoryIcon(subItem);
+            const subTitle = language === 'en' ? subItem.title : (subItem.titleBn || subItem.title);
 
             return (
               <li key={subItem.id}>
@@ -175,14 +185,13 @@ export const SubmenuPanel: React.FC<SubmenuPanelProps> = ({
                   href={targetUrl}
                   onClick={(e) => handleSubcategoryNavigate(e, targetUrl, subItem)}
                   onPointerEnter={() => prefetchUrl(targetUrl)}
-
                   prefetch={true}
                   className="flex items-center justify-between px-6 py-3 min-h-[48px] text-sm text-gray-700 dark:text-slate-300 hover:text-gray-950 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800/80 transition-all duration-150 text-left group cursor-pointer"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <SubIcon className="w-4 h-4 text-gray-400 dark:text-slate-500 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:scale-110 transition-all duration-150 shrink-0" />
                     <span className="truncate group-hover:translate-x-1 transition-transform duration-150 font-normal group-hover:font-medium">
-                      {subItem.titleBn || subItem.title}
+                      {subTitle}
                     </span>
                   </div>
 

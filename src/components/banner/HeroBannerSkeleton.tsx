@@ -10,7 +10,8 @@ export const HeroBannerSkeleton: React.FC = () => {
       className="relative w-full max-w-[1400px] mx-auto overflow-hidden rounded-b-xl shadow-md bg-[#eaeded]"
       aria-hidden="true"
     >
-      <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] md:aspect-[16/7] overflow-hidden bg-gradient-to-r from-gray-900 via-slate-800 to-gray-900 animate-pulse">
+      {/* Task 19 & 49: Pure Zero-CLS Aspect Container with Containment */}
+      <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] md:aspect-[16/7] overflow-hidden contain-paint bg-gradient-to-r from-gray-900 via-slate-800 to-gray-900 animate-pulse">
         {/* Shimmer gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
 

@@ -40,11 +40,13 @@ export default function DealsPage() {
   ];
 
   const filteredDeals = FLASH_DEALS.filter((deal) => {
-    // Deal Type Filter
+    // Deal Type Filter (Task 26 & 28)
     const status = getDealStatus(deal);
     if (selectedType === 'upcoming') {
       if (status !== 'upcoming') return false;
-    } else if (selectedType !== 'all') {
+    } else if (selectedType === 'all') {
+      if (status === 'upcoming') return false;
+    } else {
       if (deal.dealType !== selectedType || status === 'upcoming') return false;
     }
 
@@ -57,7 +59,7 @@ export default function DealsPage() {
   });
 
   const getDealTypeCount = (type: FilterType) => {
-    if (type === 'all') return FLASH_DEALS.length;
+    if (type === 'all') return FLASH_DEALS.filter((d) => getDealStatus(d) !== 'upcoming').length;
     if (type === 'upcoming') return FLASH_DEALS.filter((d) => getDealStatus(d) === 'upcoming').length;
     return FLASH_DEALS.filter((d) => d.dealType === type && getDealStatus(d) !== 'upcoming').length;
   };

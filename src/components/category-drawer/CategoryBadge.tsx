@@ -32,11 +32,15 @@ export const CategoryBadge: React.FC<CategoryBadgeProps> = ({
     badgeStyles = 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-xs';
   } else if (normalized === 'LIVE') {
     badgeStyles = 'bg-blue-600 text-white font-bold animate-pulse shadow-xs';
-  } else if (normalized === 'SALE' || normalized === 'OFFER' || normalized.includes('%')) {
+  } else if (normalized === 'TOP 10') {
+    badgeStyles = 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black shadow-xs';
+  } else if (normalized === 'B2B') {
+    badgeStyles = 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black shadow-xs';
+  } else if (normalized === 'DEAL' || normalized === 'SALE' || normalized === 'OFFER' || normalized.includes('%')) {
     badgeStyles = 'bg-[#f08804] text-gray-950 font-black shadow-xs';
   }
 
-  const sizeClasses = size === 'md' ? 'text-[10px] px-2 py-0.5' : 'text-[9px] px-1.5 py-0.5';
+  const sizeClasses = size === 'md' ? 'text-[10px] px-2 py-0.5' : 'text-[9px] px-1.5 py-0.5 font-outfit';
 
   return (
     <span

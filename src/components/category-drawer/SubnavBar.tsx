@@ -12,6 +12,8 @@ import { BulkOrderLink } from '@/components/header/BulkOrderLink';
 import { SellerModeSwitch } from '@/components/header/SellerModeSwitch';
 import { useCategoryAnalytics } from '@/hooks/useCategoryAnalytics';
 import { useCategoryHistory } from '@/hooks/useCategoryHistory';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useCategoryPrefetch } from '@/hooks/useCategoryPrefetch';
 
 interface SubnavBarProps {
   className?: string;
@@ -29,6 +31,8 @@ interface SubnavBarProps {
  * - Task 8: Direct Navigation Architecture (1-click prefetching without dropdown lag)
  * - Task 9: Amazon Signature Hover Outline Box Styling with Active Route Highlighting
  * - Task 10: Local Malda Student Hub & Emergency Notice Ticker
+ * - Task 20: Instant Hover Pre-fetching via useCategoryPrefetch
+ * - Task 26: Full Bilingual (bn / en) Support
  * - Task 45: Header & Sub-nav Content Separation (Order history is preserved in Header account area,
  *            while the sub-nav strip remains an uncluttered pure catalog and student browsing funnel)
  */
@@ -45,6 +49,8 @@ export const SubnavBar: React.FC<SubnavBarProps> = ({
   const [canScrollRight, setCanScrollRight] = useState(false);
   const { trackCategoryEvent } = useCategoryAnalytics();
   const { recordCategoryVisit } = useCategoryHistory();
+  const { language } = useLanguage();
+  const { prefetchUrl } = useCategoryPrefetch();
 
 
   // Check scroll boundary to conditionally show smooth scroll helpers on desktop
@@ -86,7 +92,7 @@ export const SubnavBar: React.FC<SubnavBarProps> = ({
   return (
     <nav
       role="navigation"
-      aria-label="ক্যাটাগরি সাব-ন্যাভিগেশন"
+      aria-label={language === 'bn' ? 'ক্যাটাগরি সাব-ন্যাভিগেশন' : 'Category sub-navigation'}
       className={`bg-[#232f3e] dark:bg-slate-900 border-t border-black/20 text-white text-xs select-none relative min-h-[39px] flex items-center font-bengali ${className}`}
     >
       <div className="max-w-[1500px] mx-auto px-2 sm:px-4 py-0.5 sm:py-1 flex items-center justify-between gap-1 sm:gap-2">
@@ -99,8 +105,8 @@ export const SubnavBar: React.FC<SubnavBarProps> = ({
             <button
               type="button"
               onClick={() => handleScroll('left')}
-              aria-label="বামে স্ক্রোল করুন"
-              className="hidden md:flex absolute left-0 z-20 h-full items-center justify-center px-1 bg-gradient-to-r from-[#232f3e] via-[#232f3e]/90 to-transparent text-gray-300 hover:text-white"
+              aria-label={language === 'bn' ? 'বামে স্ক্রোল করুন' : 'Scroll left'}
+              className="hidden md:flex absolute left-0 z-20 w-7 h-full items-center justify-center bg-gradient-to-r from-[#232f3e] via-[#232f3e]/95 to-transparent text-gray-300 hover:text-white transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -122,18 +128,20 @@ export const SubnavBar: React.FC<SubnavBarProps> = ({
             {links.map((link) => {
               const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(`${link.href}/`));
               const Icon = link.icon;
+              const displayLabel = language === 'en' ? (link.labelEn || link.label) : (link.labelBn || link.label);
 
               return (
                 <Link
                   key={link.id}
                   href={link.href}
                   prefetch={true}
+                  onPointerEnter={() => prefetchUrl(link.href)}
                   onClick={() => {
-                    recordCategoryVisit(link.id, link.href, link.label);
+                    recordCategoryVisit(link.id, link.href, displayLabel);
                     trackCategoryEvent({
                       event: 'subnav_click',
                       categoryId: link.id,
-                      categoryTitle: link.label,
+                      categoryTitle: displayLabel,
                       slug: link.href,
                       source: 'subnav',
                     });
@@ -151,7 +159,7 @@ export const SubnavBar: React.FC<SubnavBarProps> = ({
                       }`}
                     />
                   )}
-                  <span>{link.label}</span>
+                  <span>{displayLabel}</span>
 
                   {/* Task 6 & 23: Dynamic Badges ('HOT', 'NEW', 'SALE') */}
                   {link.badge && (
@@ -172,8 +180,8 @@ export const SubnavBar: React.FC<SubnavBarProps> = ({
             <button
               type="button"
               onClick={() => handleScroll('right')}
-              aria-label="ডানে স্ক্রোল করুন"
-              className="hidden md:flex absolute right-0 z-20 h-full items-center justify-center px-1 bg-gradient-to-l from-[#232f3e] via-[#232f3e]/90 to-transparent text-gray-300 hover:text-white"
+              aria-label={language === 'bn' ? 'ডানে স্ক্রোল করুন' : 'Scroll right'}
+              className="hidden md:flex absolute right-0 z-20 w-7 h-full items-center justify-center bg-gradient-to-l from-[#232f3e] via-[#232f3e]/95 to-transparent text-gray-300 hover:text-white transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

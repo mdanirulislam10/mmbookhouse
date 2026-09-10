@@ -38,28 +38,44 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
   const effectiveCategories = categories && categories.length > 0 ? categories : dynamicCategories;
   const { trackCategoryEvent } = useCategoryAnalytics();
 
-  // Defect 4: Smooth slide-out closing animation retention
+  // Defect 4 & Task 41: Smooth 60fps GPU slide-in and slide-out animation retention
   const [shouldRender, setShouldRender] = useState(isOpen);
-  const isFirstMountRef = useRef(true);
+  const [isAnimatedOpen, setIsAnimatedOpen] = useState(false);
+  const isNavigatingBackToMainRef = useRef(false);
+  const [displayedSubmenu, setDisplayedSubmenu] = useState<CategoryItem | null>(activeSubmenu);
+
+  // Keep displayedSubmenu rendered during 260ms slide-back animation so panel doesn't vanish abruptly
+  useEffect(() => {
+    if (activeSubmenu) {
+      setDisplayedSubmenu(activeSubmenu);
+    } else {
+      const timer = setTimeout(() => {
+        setDisplayedSubmenu(null);
+      }, 260);
+      return () => clearTimeout(timer);
+    }
+  }, [activeSubmenu]);
 
   useEffect(() => {
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
-      if (!isOpen) return;
-    }
-
     if (isOpen) {
       trackCategoryEvent({ event: 'drawer_open', source: 'header' });
       setShouldRender(true);
+      // Double requestAnimationFrame guarantees initial -100% transform is rendered before transitioning to 0
+      const rafId = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimatedOpen(true);
+        });
+      });
+      return () => cancelAnimationFrame(rafId);
     } else {
       trackCategoryEvent({ event: 'drawer_close', source: 'drawer' });
+      setIsAnimatedOpen(false);
       const timer = setTimeout(() => {
         setShouldRender(false);
       }, 260);
       return () => clearTimeout(timer);
     }
   }, [isOpen, trackCategoryEvent]);
-
 
   const drawerRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -74,10 +90,14 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
 
   // Point 6 & 7: Hierarchical Back to Main Menu Handler (with department button focus restoration & history back)
   const handleBackToMainMenu = useCallback(() => {
-    if (typeof window !== 'undefined' && window.history.state?.drawerLayer === 2) {
-      window.history.back();
-    }
     setActiveSubmenu(null);
+    if (typeof window !== 'undefined' && window.history.state?.drawerLayer === 2) {
+      isNavigatingBackToMainRef.current = true;
+      window.history.back();
+      setTimeout(() => {
+        isNavigatingBackToMainRef.current = false;
+      }, 150);
+    }
     setTimeout(() => {
       if (lastClickedDepartmentIdRef.current && drawerRef.current) {
         const deptBtn = drawerRef.current.querySelector<HTMLElement>(
@@ -291,6 +311,12 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
         return;
       }
 
+      // If user clicked the Main Menu button, the history state was already handled
+      if (isNavigatingBackToMainRef.current) {
+        isNavigatingBackToMainRef.current = false;
+        return;
+      }
+
       // Browser back button was pressed; state has already been popped by browser.
       // Point 7: If user was inside 2nd layer submenu, step back to main menu first!
       if (useCategoryDrawer.getState().activeSubmenu) {
@@ -403,7 +429,7 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
         onClick={handleClose}
         aria-hidden="true"
         className={`fixed inset-0 z-[90] bg-black/60 backdrop-blur-[4px] touch-none overscroll-contain overscroll-y-contain transition-opacity duration-250 ease-out cursor-pointer ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          isAnimatedOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
 
@@ -415,7 +441,7 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchCancel}
         className={`fixed top-0 bottom-0 left-0 z-[90] w-[85vw] sm:w-[350px] max-w-[380px] bg-white dark:bg-[#1e293b] text-gray-800 dark:text-slate-100 shadow-2xl flex flex-col drawer-canvas-gpu ${
-          isOpen ? 'drawer-canvas-open' : ''
+          isAnimatedOpen ? 'drawer-canvas-open' : ''
         } overscroll-contain overscroll-y-contain font-bengali ${className}`}
       >
         {/* Task 4: Customer Greeting Banner & Top-right Close Button */}
@@ -429,7 +455,7 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
             aria-label="প্রধান বিভাগ ও ক্যাটাগরি তালিকা"
             aria-hidden={Boolean(activeSubmenu)}
             className={`absolute inset-0 overflow-y-auto overscroll-contain overscroll-y-contain slim-scrollbar drawer-panel-layer ${
-              activeSubmenu ? 'drawer-panel-left pointer-events-none invisible' : 'drawer-panel-center visible'
+              activeSubmenu ? 'drawer-panel-left pointer-events-none' : 'drawer-panel-center'
             }`}
           >
             <DrawerSections
@@ -450,12 +476,12 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
             aria-label="সাব-ক্যাটাগরি ড্রিল-ডাউন তালিকা"
             aria-hidden={!activeSubmenu}
             className={`absolute inset-0 drawer-panel-layer overscroll-contain overscroll-y-contain slim-scrollbar ${
-              activeSubmenu ? 'drawer-panel-center visible' : 'drawer-panel-right pointer-events-none invisible'
+              activeSubmenu ? 'drawer-panel-center' : 'drawer-panel-right pointer-events-none'
             }`}
           >
-            {activeSubmenu && (
+            {displayedSubmenu && (
               <SubmenuPanel
-                activeDepartment={activeSubmenu}
+                activeDepartment={displayedSubmenu}
                 onBack={handleBackToMainMenu}
                 onClose={handleClose}
                 onNavigate={handleNavigate}

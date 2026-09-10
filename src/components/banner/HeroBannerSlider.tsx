@@ -85,8 +85,8 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
     >
-      {/* Task 1 & Issue 6 Fix: Pure Aspect-Ratio Responsive Container (Zero CLS) */}
-      <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] md:aspect-[16/7] overflow-hidden">
+      {/* Task 1, 49 & Issue 6 Fix: Pure Aspect-Ratio Responsive Container with Containment (Zero CLS) */}
+      <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] md:aspect-[16/7] overflow-hidden contain-paint">
         {/* Task 2 & Issue 1 Fix: Valid Tailwind transition duration-[400ms] */}
         <div
           className="flex h-full w-full will-change-transform transition-transform duration-[400ms] ease-out"

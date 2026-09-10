@@ -10,17 +10,19 @@ interface UseCategoryDataReturn {
   refetch: () => Promise<void>;
 }
 
-// In-memory module cache to prevent redundant client network fetches
+// In-memory module cache initialized with fallback tree for 0ms instant TTI
 let cachedCategories: CategoryTreeNode[] | null = null;
 let pendingCategoryPromise: Promise<CategoryTreeNode[]> | null = null;
 
 /**
  * Task 16 & 17: Hook to fetch dynamic category tree with client memory caching
+ * Initialized with curated category tree for 0-latency instant render
  */
 export function useCategoryData(): UseCategoryDataReturn {
-  const [categories, setCategories] = useState<CategoryTreeNode[]>(
-    cachedCategories || []
-  );
+  const [categories, setCategories] = useState<CategoryTreeNode[]>(() => {
+    if (cachedCategories && cachedCategories.length > 0) return cachedCategories;
+    return getFallbackCategoryTree();
+  });
   const [isLoading, setIsLoading] = useState<boolean>(!cachedCategories);
   const [error, setError] = useState<string | null>(null);
 

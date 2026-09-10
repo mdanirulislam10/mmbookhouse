@@ -42,6 +42,7 @@ import { useCategoryAnalytics } from '@/hooks/useCategoryAnalytics';
 import { DrawerSkeleton } from './DrawerSkeleton';
 import { CategoryBadge } from './CategoryBadge';
 import { CategoryItem } from '@/types/category-drawer';
+import { performCompleteSignOut } from '@/lib/auth/signOutHelper';
 
 
 export interface DrawerSectionsProps {
@@ -114,7 +115,7 @@ export const DrawerSections: React.FC<DrawerSectionsProps> = ({
   const router = useRouter();
   const { closeDrawer, user, setUser } = useCategoryDrawer();
   const { isLoggedIn, signOut } = useUserRole();
-  const { isLoggedIn: isAuthLoggedIn, logout: authLogout } = useAuthSession();
+  const { isLoggedIn: isAuthLoggedIn } = useAuthSession();
   const { language, setLanguage } = useLanguage();
   const { prefetchUrl } = useCategoryPrefetch();
   const dict = getHeaderDictionary(language);
@@ -184,10 +185,22 @@ export const DrawerSections: React.FC<DrawerSectionsProps> = ({
   // Task 47: Category Engagement Event Analytics
   const { trackCategoryEvent } = useCategoryAnalytics();
 
-  // 1. Digital & Specials
-  const digitalItems = [
-    { title: 'এম.এম বুক হাউস স্পেশাল ক্যাটালগ', href: '/category/specials', icon: Sparkles },
-    { title: 'ই-বুক ও সিলেবাস গাইডলাইন', href: '/category/ebooks', icon: Tablet },
+  // 1. Digital & Specials Departments (Drill-down enabled)
+  const digitalDepartments: CategoryItem[] = [
+    {
+      id: 'dept-specials',
+      title: 'Specials & Collector Editions',
+      titleBn: 'এম.এম বুক হাউস স্পেশাল ও সংগ্রাহক সংস্করণ',
+      slug: 'specials',
+      hasSubcategories: true,
+    },
+    {
+      id: 'dept-ebooks',
+      title: 'E-Books & Syllabus Guidelines',
+      titleBn: 'ই-বুক ও সিলেবাস গাইডলাইন (PDF)',
+      slug: 'ebooks',
+      hasSubcategories: true,
+    },
   ];
 
   // 2. Dynamic Categories with Default Departments Fallback
@@ -216,33 +229,79 @@ export const DrawerSections: React.FC<DrawerSectionsProps> = ({
     if (slug.includes('school') || slug.includes('board') || slug.includes('madhyamik') || slug.includes('wbbse')) return School;
     if (slug.includes('competitive') || slug.includes('exam') || slug.includes('job') || slug.includes('police') || slug.includes('rail') || slug.includes('tet')) return Medal;
     if (slug.includes('lit') || slug.includes('story') || slug.includes('novel') || slug.includes('poetry')) return BookOpen;
+    if (slug.includes('special') || slug.includes('rare') || slug.includes('boxset')) return Sparkles;
+    if (slug.includes('ebook') || slug.includes('syllabus') || slug.includes('pdf')) return Tablet;
     return BookMarked;
   };
 
-  // 3. Task 22: Trending, Movers & Shakers, and Deals
+  // 3. Task 22: Trending, Movers & Shakers, and Deals (Bilingual support)
+  const isEn = language === 'en';
   const trendingItems = [
-    { title: 'এই সপ্তাহের টপ ১০ বই (Top 10)', href: '/bestsellers', icon: TrendingUp, badge: 'TOP 10' },
-    { title: 'Movers & Shakers (সর্বাধিক পঠিত)', href: '/trending', icon: Flame, badge: 'HOT' },
-    { title: 'আজকের ফ্ল্যাশ ডিলস (Deals)', href: '/deals', icon: Sparkles, badge: 'DEAL' },
-    { title: '৫০% পর্যন্ত বিশেষ ছাড় (Clearance)', href: '/deals', icon: Percent, badge: '50% OFF' },
-    { title: 'নতুন প্রকাশিত বই (New Arrivals)', href: '/new-arrivals', icon: Clock, badge: 'NEW' },
+    {
+      title: isEn ? 'Top 10 Books This Week' : 'এই সপ্তাহের টপ ১০ বই (Top 10)',
+      href: '/bestsellers',
+      icon: TrendingUp,
+      badge: 'TOP 10',
+    },
+    {
+      title: isEn ? 'Movers & Shakers' : 'Movers & Shakers (সর্বাধিক পঠিত)',
+      href: '/trending',
+      icon: Flame,
+      badge: 'HOT',
+    },
+    {
+      title: isEn ? "Today's Flash Deals" : 'আজকের ফ্ল্যাশ ডিলস (Deals)',
+      href: '/deals',
+      icon: Sparkles,
+      badge: 'DEAL',
+    },
+    {
+      title: isEn ? 'Up to 50% Off Clearance' : '৫০% পর্যন্ত বিশেষ ছাড় (Clearance)',
+      href: '/deals',
+      icon: Percent,
+      badge: '50% OFF',
+    },
+    {
+      title: isEn ? 'New Arrivals' : 'নতুন প্রকাশিত বই (New Arrivals)',
+      href: '/new-arrivals',
+      icon: Clock,
+      badge: 'NEW',
+    },
   ];
 
-  // 4. Tasks 25, 36 & 37: Help, Settings, Account & B2B Bulk Orders (Defect 8: duplicate phone item removed)
+  // 4. Tasks 25, 36 & 37: Help, Settings, Account & B2B Bulk Orders
   const helpItems = [
-    { title: 'আপনার অ্যাকাউন্ট (Your Account)', href: '/account', icon: User },
-    { title: 'অর্ডার ট্র্যাকিং (Track Orders)', href: '/orders', icon: Package },
-    { title: 'স্কুল ও কোচিং বাল্ক অর্ডার (Request-a-Quote)', href: '/bulk-order', icon: Building2, badge: 'B2B' },
-    { title: 'গ্রাহক সেবা ও সহায়তা (Customer Care)', href: '/support', icon: HelpCircle },
+    {
+      title: isEn ? 'Your Account' : 'আপনার অ্যাকাউন্ট (Your Account)',
+      href: '/account',
+      icon: User,
+    },
+    {
+      title: isEn ? 'Track Orders' : 'অর্ডার ট্র্যাকিং (Track Orders)',
+      href: '/orders',
+      icon: Package,
+    },
+    {
+      title: isEn ? 'School & Bulk Orders (Request-a-Quote)' : 'স্কুল ও কোচিং বাল্ক অর্ডার (Request-a-Quote)',
+      href: '/bulk-order',
+      icon: Building2,
+      badge: 'B2B',
+    },
+    {
+      title: isEn ? 'Customer Care & Support' : 'গ্রাহক সেবা ও সহায়তা (Customer Care)',
+      href: '/support',
+      icon: HelpCircle,
+    },
   ];
 
   const handleDepartmentClick = (dept: CategoryItem) => {
     // Task 46 & 47: Record category preference & track engagement event
-    recordCategoryVisit(dept.id, dept.slug, dept.titleBn || dept.title);
+    const titleToLog = isEn ? dept.title : (dept.titleBn || dept.title);
+    recordCategoryVisit(dept.id, dept.slug, titleToLog);
     trackCategoryEvent({
       event: 'category_select',
       categoryId: dept.id,
-      categoryTitle: dept.titleBn || dept.title,
+      categoryTitle: titleToLog,
       slug: dept.slug,
       source: 'drawer',
     });
@@ -260,48 +319,21 @@ export const DrawerSections: React.FC<DrawerSectionsProps> = ({
     if (onClose) onClose();
     else closeDrawer();
     signOut();
-    authLogout();
     setUser({ isLoggedIn: false, name: undefined, email: undefined });
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
+    performCompleteSignOut('/');
   };
 
   return (
-    <nav aria-label="বিভাগ ও সহায়িকা মেনু" className="py-2 text-gray-800 dark:text-slate-100 font-bengali select-none">
+    <nav aria-label={isEn ? 'Department & Help Menu' : 'বিভাগ ও সহায়িকা মেনু'} className="py-2 text-gray-800 dark:text-slate-100 font-bengali select-none">
       {/* SECTION 1: ডিজিটাল কন্টেন্ট ও স্পেশালস */}
       <section aria-labelledby="drawer-sec-digital-heading" className="border-b border-gray-200 dark:border-slate-700/60 pb-3 mb-2">
         <h3 id="drawer-sec-digital-heading" className="px-6 pt-2.5 pb-1.5 text-xs font-bold text-gray-900 dark:text-slate-200 tracking-wider uppercase font-bengali">
-          ডিজিটাল কন্টেন্ট ও স্পেশালস
+          {isEn ? 'Digital Content & Specials' : 'ডিজিটাল কন্টেন্ট ও স্পেশালস'}
         </h3>
         <ul className="space-y-0.5">
-          {digitalItems.map((item, idx) => (
-            <li key={idx}>
-              <Link
-                href={item.href}
-                onClick={(e) => handleLinkNavigate(e, item.href)}
-                onPointerEnter={() => prefetchUrl(item.href)}
-                className="flex items-center gap-3 px-6 py-3 min-h-[48px] text-sm text-gray-700 dark:text-slate-300 hover:text-gray-950 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800/80 transition-all duration-150 group"
-              >
-                <item.icon className="w-4 h-4 text-gray-500 dark:text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:scale-110 transition-all duration-150 shrink-0" />
-                <span className="truncate group-hover:translate-x-1 transition-transform duration-150 font-normal group-hover:font-medium">
-                  {item.title}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* SECTION 2: পড়াশোনা ও পরীক্ষা (Shop by Department) */}
-      <section aria-labelledby="drawer-sec-dept-heading" className="border-b border-gray-200 dark:border-slate-700/60 pb-3 mb-2">
-        <h3 id="drawer-sec-dept-heading" className="px-6 pt-2.5 pb-1.5 text-xs font-bold text-gray-900 dark:text-slate-200 tracking-wider uppercase font-bengali">
-          বিভাগ অনুযায়ী বই (Shop by Department)
-        </h3>
-        <ul className="space-y-0.5">
-          {sortedDepartments.map((dept) => {
+          {digitalDepartments.map((dept) => {
             const IconComponent = getCategoryIcon(dept);
-            const isRecommended = dept.id === preferredDepartmentId || dept.slug === preferredDepartmentId;
+            const deptTitle = isEn ? dept.title : (dept.titleBn || dept.title);
             return (
               <li key={dept.id}>
                 <button
@@ -313,13 +345,45 @@ export const DrawerSections: React.FC<DrawerSectionsProps> = ({
                   <div className="flex items-center gap-3 min-w-0">
                     <IconComponent className="w-4 h-4 text-gray-500 dark:text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:scale-110 transition-all duration-150 shrink-0" />
                     <span className="truncate group-hover:translate-x-1 transition-transform duration-150 font-normal group-hover:font-medium">
-                      {dept.titleBn || dept.title}
+                      {deptTitle}
+                    </span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 dark:text-slate-500 group-hover:text-gray-700 dark:group-hover:text-slate-200 group-hover:translate-x-1 transition-all duration-150 shrink-0 ml-2" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {/* SECTION 2: পড়াশোনা ও পরীক্ষা (Shop by Department) */}
+      <section aria-labelledby="drawer-sec-dept-heading" className="border-b border-gray-200 dark:border-slate-700/60 pb-3 mb-2">
+        <h3 id="drawer-sec-dept-heading" className="px-6 pt-2.5 pb-1.5 text-xs font-bold text-gray-900 dark:text-slate-200 tracking-wider uppercase font-bengali">
+          {isEn ? 'Shop by Department' : 'বিভাগ অনুযায়ী বই (Shop by Department)'}
+        </h3>
+        <ul className="space-y-0.5">
+          {sortedDepartments.map((dept) => {
+            const IconComponent = getCategoryIcon(dept);
+            const isRecommended = dept.id === preferredDepartmentId || dept.slug === preferredDepartmentId;
+            const deptTitle = isEn ? dept.title : (dept.titleBn || dept.title);
+            return (
+              <li key={dept.id}>
+                <button
+                  type="button"
+                  data-dept-id={dept.id}
+                  onClick={() => handleDepartmentClick(dept)}
+                  className="w-full flex items-center justify-between px-6 py-3 min-h-[48px] text-sm text-gray-700 dark:text-slate-300 hover:text-gray-950 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800/80 transition-all duration-150 text-left group cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <IconComponent className="w-4 h-4 text-gray-500 dark:text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:scale-110 transition-all duration-150 shrink-0" />
+                    <span className="truncate group-hover:translate-x-1 transition-transform duration-150 font-normal group-hover:font-medium">
+                      {deptTitle}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     {isRecommended && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/40">
-                        {language === 'bn' ? 'আপনার পছন্দ' : 'For You'}
+                        {isEn ? 'For You' : 'আপনার পছন্দ'}
                       </span>
                     )}
                     <ChevronRight className="w-4 h-4 text-gray-400 dark:text-slate-500 group-hover:text-gray-700 dark:group-hover:text-slate-200 group-hover:translate-x-1 transition-all duration-150" />
@@ -329,13 +393,12 @@ export const DrawerSections: React.FC<DrawerSectionsProps> = ({
             );
           })}
         </ul>
-
       </section>
 
       {/* SECTION 3: ট্রেন্ডিং ও অফার */}
       <section aria-labelledby="drawer-sec-trending-heading" className="border-b border-gray-200 dark:border-slate-700/60 pb-3 mb-2">
         <h3 id="drawer-sec-trending-heading" className="px-6 pt-2.5 pb-1.5 text-xs font-bold text-gray-900 dark:text-slate-200 tracking-wider uppercase font-bengali">
-          ট্রেন্ডিং ও অফার
+          {isEn ? 'Trending & Offers' : 'ট্রেন্ডিং ও অফার'}
         </h3>
         <ul className="space-y-0.5">
           {trendingItems.map((item, idx) => (
@@ -362,7 +425,7 @@ export const DrawerSections: React.FC<DrawerSectionsProps> = ({
       {/* SECTION 4: হেল্প ও সেটিংস */}
       <section aria-labelledby="drawer-sec-help-heading" className="pb-4">
         <h3 id="drawer-sec-help-heading" className="px-6 pt-2.5 pb-1.5 text-xs font-bold text-gray-900 dark:text-slate-200 tracking-wider uppercase font-bengali">
-          সহায়তা ও সেটিংস
+          {isEn ? 'Help & Settings' : 'সহায়তা ও সেটিংস'}
         </h3>
 
         <ul className="space-y-0.5">

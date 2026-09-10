@@ -22,7 +22,7 @@ interface DrawerHeaderProps {
 export const DrawerHeader: React.FC<DrawerHeaderProps> = ({ onClose, onNavigate }) => {
   const { user } = useCategoryDrawer();
   const { userRole, isLoggedIn: isRoleLoggedIn } = useUserRole();
-  const { isLoggedIn: isAuthLoggedIn, fullName } = useAuthSession();
+  const { isLoggedIn: isAuthLoggedIn, fullName, avatarUrl: authAvatarUrl } = useAuthSession();
   const { language } = useLanguage();
   const dict = getHeaderDictionary(language);
 
@@ -31,19 +31,20 @@ export const DrawerHeader: React.FC<DrawerHeaderProps> = ({ onClose, onNavigate 
   const getGreetingName = () => {
     if (fullName) return fullName;
     if (user?.name) return user.name;
+    const isEn = language === 'en';
     switch (userRole) {
       case 'admin':
-        return 'অ্যাডমিনিস্ট্রেটর (Admin)';
+        return isEn ? 'Administrator' : 'অ্যাডমিনিস্ট্রেটর (Admin)';
       case 'merchant':
-        return 'মার্চেন্ট পার্টনার';
+        return isEn ? 'Merchant Partner' : 'মার্চেন্ট পার্টনার';
       case 'seller':
-        return 'বুক সেলার';
+        return isEn ? 'Book Seller' : 'বুক সেলার';
       case 'pos_staff':
-        return 'কাউন্টার স্টাফ';
+        return isEn ? 'Counter Staff' : 'কাউন্টার স্টাফ';
       case 'pos_operator':
-        return 'পিওএস অপারেটর';
+        return isEn ? 'POS Operator' : 'পিওএস অপারেটর';
       case 'customer':
-        return 'সম্মানিত গ্রাহক';
+        return isEn ? 'Valued Customer' : 'সম্মানিত গ্রাহক';
       default:
         return dict.drawer.greetingGuest;
     }
@@ -65,11 +66,21 @@ export const DrawerHeader: React.FC<DrawerHeaderProps> = ({ onClose, onNavigate 
             onClose();
           }
         }}
-        aria-label={isUserLoggedIn ? `ব্যবহারকারী অ্যাকাউন্ট: ${greetingName}` : `${dict.drawer.greetingPrefix} ${dict.drawer.greetingGuest} - সাইন ইন করুন`}
+        aria-label={
+          isUserLoggedIn
+            ? (language === 'bn' ? `ব্যবহারকারী অ্যাকাউন্ট: ${greetingName}` : `User Account: ${greetingName}`)
+            : `${dict.drawer.greetingPrefix} ${dict.drawer.greetingGuest} - ${language === 'bn' ? 'সাইন ইন করুন' : 'Sign in'}`
+        }
         className="flex items-center gap-3 group focus:outline-none focus:ring-1 focus:ring-amber-400 rounded-sm p-0.5 cursor-pointer"
       >
-        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-amber-400 group-hover:bg-amber-400 group-hover:text-gray-950 transition-colors">
-          <User className="w-5 h-5" aria-hidden="true" />
+        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-amber-400 group-hover:bg-amber-400 group-hover:text-gray-950 transition-colors overflow-hidden shrink-0 border border-amber-400/40 font-bold text-xs">
+          {authAvatarUrl || user?.avatarUrl ? (
+            <img src={authAvatarUrl || user?.avatarUrl} alt={greetingName} className="w-full h-full object-cover" />
+          ) : isUserLoggedIn && greetingName ? (
+            <span>{greetingName.slice(0, 2).toUpperCase()}</span>
+          ) : (
+            <User className="w-5 h-5" aria-hidden="true" />
+          )}
         </div>
         <div className="flex flex-col">
           <span className="text-xs text-gray-300 font-normal">{dict.drawer.greetingPrefix}</span>
@@ -89,7 +100,6 @@ export const DrawerHeader: React.FC<DrawerHeaderProps> = ({ onClose, onNavigate 
       >
         <X className="w-5 h-5" aria-hidden="true" />
       </button>
-
     </div>
   );
 };

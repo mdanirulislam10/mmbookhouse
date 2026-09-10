@@ -27,41 +27,62 @@ export function useHeroBanner({ banners, config }: UseHeroBannerProps) {
   const touchEndYRef = useRef<number | null>(null);
   const swipeResetTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isTabHidden, setIsTabHidden] = useState(false);
+  const [timerTick, setTimerTick] = useState(0);
+
   const totalSlides = banners.length;
+
+  const resetTimer = useCallback(() => {
+    setTimerTick((prev) => prev + 1);
+  }, []);
 
   const nextSlide = useCallback(() => {
     if (totalSlides === 0) return;
     setCurrentIndex((prev) => (prev + 1) % totalSlides);
-  }, [totalSlides]);
+    resetTimer();
+  }, [totalSlides, resetTimer]);
 
   const prevSlide = useCallback(() => {
     if (totalSlides === 0) return;
     setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
-  }, [totalSlides]);
+    resetTimer();
+  }, [totalSlides, resetTimer]);
 
   const goToSlide = useCallback(
     (index: number) => {
       if (index >= 0 && index < totalSlides) {
         setCurrentIndex(index);
+        resetTimer();
       }
     },
-    [totalSlides]
+    [totalSlides, resetTimer]
   );
 
-  const isPaused = manualPause || (pauseOnHover && isHovered) || (pauseOnTouch && isTouching) || isFocused;
+  // Tab visibility listener to pause rotation in background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsTabHidden(document.visibilityState === 'hidden');
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
-  // Task 3: 5-Second Interval Auto-Slide Rotator with Clean Lifecycle Cleanup
+  const isPaused = manualPause || isTabHidden || (pauseOnHover && isHovered) || (pauseOnTouch && isTouching) || isFocused;
+
+  // Task 3: 5-Second Interval Auto-Slide Rotator with Clean Lifecycle Cleanup & Navigation Reset
   useEffect(() => {
     if (isPaused || totalSlides <= 1) return;
 
     const timer = setInterval(() => {
-      nextSlide();
+      setCurrentIndex((prev) => (prev + 1) % totalSlides);
     }, autoRotateInterval);
 
     return () => {
       clearInterval(timer);
     };
-  }, [isPaused, autoRotateInterval, nextSlide, totalSlides]);
+  }, [isPaused, autoRotateInterval, totalSlides, timerTick]);
 
   // Clean up swipe reset timer on unmount
   useEffect(() => {

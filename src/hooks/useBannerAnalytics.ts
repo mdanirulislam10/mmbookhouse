@@ -9,6 +9,8 @@ export function useBannerAnalytics() {
   const [metrics, setMetrics] = useState<Record<string, BannerAnalyticsMetric>>({});
   const recentImpressions = useRef<Map<string, number>>(new Map());
 
+  const isLoadedRef = useRef(false);
+
   // Load metrics from storage
   useEffect(() => {
     try {
@@ -18,18 +20,20 @@ export function useBannerAnalytics() {
       }
     } catch {
       // Ignore
+    } finally {
+      isLoadedRef.current = true;
     }
   }, []);
 
-  // Save metrics to storage
-  const saveMetrics = useCallback((updated: Record<string, BannerAnalyticsMetric>) => {
-    setMetrics(updated);
+  // Save metrics to storage whenever metrics change (React 19 Pure Side-Effect Pattern)
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
     try {
-      localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(metrics));
     } catch {
       // Ignore
     }
-  }, []);
+  }, [metrics]);
 
   // Track an impression (debounced to 1 impression per 10s per banner)
   const trackImpression = useCallback((bannerId: string, bannerTitle: string) => {
@@ -52,7 +56,7 @@ export function useBannerAnalytics() {
         lastInteraction: new Date().toISOString(),
       };
 
-      const updated = {
+      return {
         ...prev,
         [bannerId]: {
           ...existing,
@@ -61,14 +65,6 @@ export function useBannerAnalytics() {
           lastInteraction: new Date().toISOString(),
         },
       };
-
-      try {
-        localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore
-      }
-
-      return updated;
     });
   }, []);
 
@@ -86,7 +82,7 @@ export function useBannerAnalytics() {
         lastInteraction: new Date().toISOString(),
       };
 
-      const updated = {
+      return {
         ...prev,
         [bannerId]: {
           ...existing,
@@ -94,14 +90,6 @@ export function useBannerAnalytics() {
           lastInteraction: new Date().toISOString(),
         },
       };
-
-      try {
-        localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore
-      }
-
-      return updated;
     });
   }, []);
 
@@ -113,7 +101,7 @@ export function useBannerAnalytics() {
       const existing = prev[bannerId];
       if (!existing) return prev;
 
-      const updated = {
+      return {
         ...prev,
         [bannerId]: {
           ...existing,
@@ -121,14 +109,6 @@ export function useBannerAnalytics() {
           lastInteraction: new Date().toISOString(),
         },
       };
-
-      try {
-        localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore
-      }
-
-      return updated;
     });
   }, []);
 

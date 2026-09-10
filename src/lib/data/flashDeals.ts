@@ -1,4 +1,5 @@
 import { DealItem, DealStatus } from '@/types/deal';
+import { getSyncedCurrentTime } from '@/lib/utils/serverTime';
 
 // Helper to generate dynamic past time
 export const getPastIsoTime = (hoursAgo: number, minutesAgo: number = 0): string => {
@@ -142,10 +143,10 @@ export const FLASH_DEALS: DealItem[] = [
 ];
 
 /**
- * Task 27: Cross-Page Promotion Lookup
- * Returns active deal for a book if any exists
+ * Task 27 & 30: Cross-Page Promotion Lookup with Server-Clock Drift Prevention
+ * Returns active deal for a book if any exists based on synchronized IST clock
  */
-export function getActiveDealForBook(bookId: string, referenceTimeMs: number = Date.now()): DealItem | null {
+export function getActiveDealForBook(bookId: string, referenceTimeMs: number = getSyncedCurrentTime()): DealItem | null {
   const deal = FLASH_DEALS.find((d) => d.bookId === bookId);
   if (!deal) return null;
 
@@ -159,9 +160,9 @@ export function getActiveDealForBook(bookId: string, referenceTimeMs: number = D
 }
 
 /**
- * Task 28: Determine deal status (upcoming, active, or expired)
+ * Task 28 & 30: Determine deal status (upcoming, active, or expired) using server-synced time
  */
-export function getDealStatus(deal: DealItem, referenceTimeMs: number = Date.now()): DealStatus {
+export function getDealStatus(deal: DealItem, referenceTimeMs: number = getSyncedCurrentTime()): DealStatus {
   const startMs = new Date(deal.startTime).getTime();
   const endMs = new Date(deal.endTime).getTime();
 
@@ -175,9 +176,9 @@ export function getDealStatus(deal: DealItem, referenceTimeMs: number = Date.now
 }
 
 /**
- * Task 28: Filter deals by status
+ * Task 28 & 30: Filter deals by status using server-synced time
  */
-export function getAllDealsByStatus(status: DealStatus, referenceTimeMs: number = Date.now()): DealItem[] {
+export function getAllDealsByStatus(status: DealStatus, referenceTimeMs: number = getSyncedCurrentTime()): DealItem[] {
   return FLASH_DEALS.filter((deal) => getDealStatus(deal, referenceTimeMs) === status);
 }
 
