@@ -5,8 +5,12 @@ import Link from 'next/link';
 import { ShoppingCart, Trash2, ArrowRight, BookOpen, CheckCircle2 } from 'lucide-react';
 import { useCart } from '@/hooks/useCartStore';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDeliveryLocation } from '@/hooks/useDeliveryLocation';
+import { calculateCartShipping } from '@/lib/services/shippingSyncService';
+import { FreeShippingProgressBar } from '@/components/delivery/FreeShippingProgressBar';
 import { getHeaderDictionary } from '@/lib/i18n/headerDictionary';
 import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
+import { GuestCartBadge } from '@/components/cart/GuestCartBadge';
 
 interface MiniCartFlyoutProps {
   isOpen: boolean;
@@ -21,8 +25,15 @@ export const MiniCartFlyout: React.FC<MiniCartFlyoutProps> = ({
 }) => {
   const { items, totalCount, subtotal, totalSavings, removeItem } = useCart();
   const { language, isBengali } = useLanguage();
+  const { location } = useDeliveryLocation();
   const dict = getHeaderDictionary(language);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const shippingResult = calculateCartShipping({
+    subtotal,
+    pincode: location.pincode,
+    fulfillmentMode: location.fulfillmentMode as any,
+  });
 
   // Close on ESC
   useEffect(() => {
@@ -99,6 +110,11 @@ export const MiniCartFlyout: React.FC<MiniCartFlyoutProps> = ({
       ) : (
         /* Filled Cart State */
         <div className="p-3">
+          {/* Task 19 & 47: Unified Free Shipping Progress Bar */}
+          <div className="mb-2.5">
+            <FreeShippingProgressBar currentAmount={subtotal} compact={true} />
+          </div>
+
           {/* Scrollable Item List */}
           <div className="max-h-60 overflow-y-auto divide-y divide-gray-100 pr-1 space-y-2">
             {items.slice(0, 4).map((item) => (
@@ -144,11 +160,25 @@ export const MiniCartFlyout: React.FC<MiniCartFlyoutProps> = ({
           </div>
 
           {/* Subtotal & Savings Summary */}
-          <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-1">
+          <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-gray-700">{dict.cart.subtotal}:</span>
               <span className="text-sm font-black text-gray-950 font-mono">
                 {formatINR(subtotal, language)}
+              </span>
+            </div>
+
+            {/* Task 47: Shipping breakdown based on active pincode */}
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>{isBengali ? 'ডেলিভারি ফি:' : 'Estimated Shipping:'}</span>
+              <span className="font-semibold font-mono">
+                {shippingResult.totalShippingFee === 0 ? (
+                  <span className="text-emerald-700 font-bold">
+                    {isBengali ? 'বিনামূল্যে (FREE)' : 'FREE'}
+                  </span>
+                ) : (
+                  formatINR(shippingResult.totalShippingFee, language)
+                )}
               </span>
             </div>
 
@@ -159,10 +189,22 @@ export const MiniCartFlyout: React.FC<MiniCartFlyoutProps> = ({
                   : `Total Savings: ${formatINR(totalSavings, language)}`}
               </div>
             )}
+
+            <div className="flex items-center justify-between text-xs font-bold pt-1 border-t border-gray-200">
+              <span className="text-gray-900">{isBengali ? 'সর্বমোট (Grand Total):' : 'Grand Total:'}</span>
+              <span className="text-sm font-black text-[#b12704] font-mono">
+                {formatINR(shippingResult.grandTotal, language)}
+              </span>
+            </div>
+          </div>
+
+          {/* Task 22: Open Guest Cart Badge */}
+          <div className="mt-3">
+            <GuestCartBadge variant="pill" className="w-full justify-center" />
           </div>
 
           {/* Action CTAs */}
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <Link
               href="/cart"
               onClick={onClose}
