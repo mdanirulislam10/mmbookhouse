@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { NotificationItem } from '@/types/header';
+
+const STORAGE_KEY = 'mm-bookhouse-notifications';
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
@@ -33,30 +36,69 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
+interface NotificationsStore {
+  notifications: NotificationItem[];
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
+  addNotification: (item: Omit<NotificationItem, 'id' | 'createdAt' | 'isRead'>) => void;
+  clearNotifications: () => void;
+}
+
+export const useNotificationsStore = create<NotificationsStore>()(
+  persist(
+    (set) => ({
+      notifications: INITIAL_NOTIFICATIONS,
+
+      markAsRead: (id: string) =>
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === id ? { ...n, isRead: true } : n
+          ),
+        })),
+
+      markAllAsRead: () =>
+        set((state) => ({
+          notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+        })),
+
+      addNotification: (item) => {
+        const newItem: NotificationItem = {
+          ...item,
+          id: `notif-${Date.now()}`,
+          createdAt: 'এখন মাত্র',
+          isRead: false,
+        };
+        set((state) => ({
+          notifications: [newItem, ...state.notifications],
+        }));
+      },
+
+      clearNotifications: () => set({ notifications: [] }),
+    }),
+    {
+      name: STORAGE_KEY,
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+
+// Atomic Selectors for Task 48 (Zustand Performance & Optimization)
+export const useUnreadNotificationsCount = () =>
+  useNotificationsStore((state) => state.notifications.filter((n) => !n.isRead).length);
+
+export const useNotificationsList = () =>
+  useNotificationsStore((state) => state.notifications);
+
+/**
+ * Backward-compatible hook for components
+ */
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const notifications = useNotificationsStore((state) => state.notifications);
+  const markAsRead = useNotificationsStore((state) => state.markAsRead);
+  const markAllAsRead = useNotificationsStore((state) => state.markAllAsRead);
+  const addNotification = useNotificationsStore((state) => state.addNotification);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
-
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
-  }, []);
-
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  }, []);
-
-  const addNotification = useCallback((item: Omit<NotificationItem, 'id' | 'createdAt' | 'isRead'>) => {
-    const newItem: NotificationItem = {
-      ...item,
-      id: `notif-${Date.now()}`,
-      createdAt: 'এখন মাত্র',
-      isRead: false,
-    };
-    setNotifications((prev) => [newItem, ...prev]);
-  }, []);
 
   return {
     notifications,

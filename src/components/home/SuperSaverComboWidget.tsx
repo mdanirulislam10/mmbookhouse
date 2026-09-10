@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { SUPER_SAVER_COMBOS } from '@/lib/data/comboDeals';
 import { ComboDeal } from '@/types/combo';
 import { useCart } from '@/hooks/useCartStore';
@@ -137,7 +138,11 @@ export function SuperSaverComboWidget({ className = '' }: SuperSaverComboWidgetP
                   </div>
                 )}
                 <div className="flex-shrink-0 w-[110px] sm:w-[130px] space-y-1.5 group">
-                  <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-white border border-gray-200 shadow-xs group-hover:shadow-md transition-shadow">
+                  <Link
+                    href={`/book/${book.bookId}`}
+                    className="block relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-white border border-gray-200 shadow-xs group-hover:shadow-md transition-shadow"
+                    title={`${book.titleBn} এর পূর্ণ বিবরণী দেখুন`}
+                  >
                     <Image
                       src={book.coverImage}
                       alt={book.titleBn}
@@ -145,9 +150,11 @@ export function SuperSaverComboWidget({ className = '' }: SuperSaverComboWidgetP
                       sizes="130px"
                       className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
                     />
-                  </div>
+                  </Link>
                   <h4 className="text-[11px] font-bold text-gray-800 line-clamp-2 leading-tight min-h-[2rem]">
-                    {book.titleBn}
+                    <Link href={`/book/${book.bookId}`} className="hover:underline hover:text-amber-800 transition-colors">
+                      {book.titleBn}
+                    </Link>
                   </h4>
                   <p className="text-[10px] text-gray-500 line-clamp-1">
                     {book.authorBn}

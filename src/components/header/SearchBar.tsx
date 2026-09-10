@@ -21,7 +21,8 @@ import { CategoryDropdown } from './CategoryDropdown';
 import { useLanguage } from '@/hooks/useLanguage';
 import { getHeaderDictionary } from '@/lib/i18n/headerDictionary';
 import { useLiveSearch, MIN_SEARCH_CHARS } from '@/hooks/useLiveSearch';
-import { LiveSearchResultItem } from '@/types/search';
+import { SEARCH_CATEGORIES, LiveSearchResultItem } from '@/types/search';
+import { formatINR } from '@/lib/utils/currency';
 
 interface SearchBarProps {
   className?: string;
@@ -47,7 +48,7 @@ interface SearchBarProps {
  * - Task 10: Cached dropdown retention on input re-focus / re-click
  */
 /**
- * Task 24: Dynamic Substring Highlighting Engine (Multi-token supported)
+ * Task 24: Dynamic Substring Highlighting Engine (Multi-token & Acronym supported)
  * Accurately highlights matching substrings or individual tokens within titles or keywords
  */
 function highlightMatch(text: string, searchQuery: string): React.ReactNode {
@@ -60,10 +61,18 @@ function highlightMatch(text: string, searchQuery: string): React.ReactNode {
       .split(/\s+/)
       .filter((t) => t.length >= 2);
 
-    if (rawTokens.length === 0) return text;
+    // Also include dot/hyphen-stripped clean acronym tokens (e.g. "w.b.c.s" -> "wbcs")
+    const cleanTokens = searchQuery
+      .toLowerCase()
+      .replace(/[.\-_]/g, '')
+      .split(/\s+/)
+      .filter((t) => t.length >= 2);
+
+    const combinedTokens = Array.from(new Set([...rawTokens, ...cleanTokens]));
+    if (combinedTokens.length === 0) return text;
 
     // Escape special characters for regex (Unicode and special characters safe)
-    const escapedTokens = rawTokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const escapedTokens = combinedTokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const regex = new RegExp(`(${escapedTokens.join('|')})`, 'gi');
 
     const parts = text.split(regex);
@@ -72,7 +81,7 @@ function highlightMatch(text: string, searchQuery: string): React.ReactNode {
     return (
       <>
         {parts.map((part, i) => {
-          const isMatch = rawTokens.some((token) => part.toLowerCase() === token);
+          const isMatch = combinedTokens.some((token) => part.toLowerCase() === token.toLowerCase());
           return isMatch ? (
             <mark
               key={i}
@@ -104,6 +113,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLFormElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -122,7 +132,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     keywords,
     categories,
     didYouMean,
+    totalCount,
     executionTimeMs,
+    error,
     searchHistory,
     trendingSearches,
     clearSearch,
@@ -134,13 +146,26 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     personalizedRecommendations,
   } = useLiveSearch();
 
-  // Execute Search Helper (Task 7)
+  // Lock body scroll on mobile overlay to prevent background rubber-banding (Task 5 & 28)
+  useEffect(() => {
+    if (isMobile && isDropdownOpen && isFocused) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isMobile, isDropdownOpen, isFocused]);
+
+  // Execute Search Helper (Task 7 & Task 25 Category-friendly routing)
   const executeSearch = (searchQuery: string, category: string) => {
     const trimmed = searchQuery.trim();
-    if (!trimmed) return;
+    if (!trimmed && (!category || category === 'all')) return;
 
-    // Save to local search history
-    saveSearchTerm(trimmed, category);
+    // Save to local search history if query is non-empty
+    if (trimmed) {
+      saveSearchTerm(trimmed, category);
+    }
 
     setIsDropdownOpen(false);
     setIsFocused(false);
@@ -149,7 +174,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     if (onSearch) {
       onSearch(trimmed, category);
     } else {
-      router.push(`/search?q=${encodeURIComponent(trimmed)}&category=${encodeURIComponent(category)}`);
+      if (trimmed) {
+        router.push(`/search?q=${encodeURIComponent(trimmed)}&category=${encodeURIComponent(category)}`);
+      } else {
+        router.push(`/search?category=${encodeURIComponent(category)}`);
+      }
     }
   };
 
@@ -213,6 +242,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     };
   }, []);
 
+  const ZERO_RESULT_CHIPS = useMemo(() => [
+    { label: 'WBCS', labelBn: 'WBCS ২০২৬' },
+    { label: 'History', labelBn: 'ইতিহাস' },
+    { label: 'UGB Sem 4', labelBn: 'গৌড়বঙ্গ UGB' },
+    { label: 'Primary TET', labelBn: 'প্রাইমারি টেট' },
+    { label: 'Bengali Literature', labelBn: 'সাহিত্য' },
+  ], []);
+
   // Task 25: Strict Item Distribution Quota (Max 4 books, 4 keywords, 2 categories)
   const displayKeywords = useMemo(() => keywords.slice(0, 4), [keywords]);
   const displayBooks = useMemo(() => books.slice(0, 4), [books]);
@@ -220,13 +257,34 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   // Task 32: Zero-input focus state rendering top 5 recent searches
   const displayHistory = useMemo(() => searchHistory.slice(0, 5), [searchHistory]);
 
-  // Compute all navigable items for arrow key navigation (Task 6 & Task 25 & Task 32)
+  // Compute all navigable items for arrow key navigation (Task 6, 25, 26, 32, 37, 38)
   const allNavigableItems = useMemo(() => {
     if (isThresholdMet) {
-      const items: { type: 'keyword' | 'book' | 'category'; data: any; category?: string }[] = [];
+      const items: {
+        type: 'keyword' | 'book' | 'category' | 'didyoumean' | 'seeall' | 'chip' | 'recBook';
+        data: any;
+        category?: string;
+      }[] = [];
       displayKeywords.forEach((kw) => items.push({ type: 'keyword', data: kw }));
       displayBooks.forEach((b) => items.push({ type: 'book', data: b, category: b.category }));
       displayCategories.forEach((c) => items.push({ type: 'category', data: c }));
+      if (didYouMean) {
+        items.push({ type: 'didyoumean', data: didYouMean });
+      }
+      if (books.length > 0 || keywords.length > 0 || isLoading) {
+        items.push({ type: 'seeall', data: query });
+      }
+
+      // Zero-result suggestions keyboard navigation (Tasks 6, 36, 37)
+      if (!isLoading && books.length === 0 && keywords.length === 0) {
+        ZERO_RESULT_CHIPS.forEach((chip) =>
+          items.push({ type: 'chip', data: isBengali ? chip.labelBn : chip.label })
+        );
+        personalizedRecommendations.slice(0, 2).forEach((recBook) =>
+          items.push({ type: 'recBook', data: recBook })
+        );
+      }
+
       return items;
     } else if (query.trim().length === 0) {
       const items: { type: 'history' | 'trending'; data: any; category?: string }[] = [];
@@ -235,7 +293,22 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       return items;
     }
     return [];
-  }, [isThresholdMet, displayKeywords, displayBooks, displayCategories, query, displayHistory, trendingSearches, isBengali]);
+  }, [
+    isThresholdMet,
+    displayKeywords,
+    displayBooks,
+    displayCategories,
+    didYouMean,
+    books.length,
+    keywords.length,
+    isLoading,
+    query,
+    displayHistory,
+    trendingSearches,
+    isBengali,
+    ZERO_RESULT_CHIPS,
+    personalizedRecommendations,
+  ]);
 
   // Task 6: Auto-scroll the active highlighted item smoothly into view
   useEffect(() => {
@@ -259,6 +332,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       return;
     }
 
+    if (allNavigableItems.length === 0) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsDropdownOpen(false);
+      }
+      return;
+    }
+
     // Task 6: Arrow Down Navigation
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -273,7 +354,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         prev > 0 ? prev - 1 : allNavigableItems.length - 1
       );
     }
-    // Task 7: Enter Key Execution & Direct Routing
+    // Task 7 & Task 27: Enter Key Execution & Direct PDP Routing
     else if (e.key === 'Enter') {
       if (activeSuggestionIndex >= 0 && allNavigableItems[activeSuggestionIndex]) {
         e.preventDefault();
@@ -285,7 +366,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           setIsDropdownOpen(false);
           setIsFocused(false);
           setActiveSuggestionIndex(-1);
-          router.push(`/search?q=${encodeURIComponent(book.title)}&category=${encodeURIComponent(book.category || selectedCategory)}`);
+          // Task 27: Direct routing to Product Detail Page (PDP)
+          router.push(`/book/${encodeURIComponent(book.slug || book.bookId || book.id)}`);
         } else if (selected.type === 'keyword' || selected.type === 'history' || selected.type === 'trending') {
           const term = String(selected.data);
           setQuery(term);
@@ -296,6 +378,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           setIsFocused(false);
           setActiveSuggestionIndex(-1);
           executeSearch('', cat.id);
+        } else if (selected.type === 'chip') {
+          const term = String(selected.data);
+          setQuery(term);
+          executeSearch(term, selectedCategory);
+        } else if (selected.type === 'recBook') {
+          handleSelectBook(selected.data);
+        } else if (selected.type === 'didyoumean') {
+          const term = String(selected.data);
+          setQuery(term);
+          executeSearch(term, selectedCategory);
+        } else if (selected.type === 'seeall') {
+          executeSearch(query.trim(), selectedCategory);
         }
       } else if (query.trim()) {
         e.preventDefault();
@@ -310,6 +404,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         setActiveSuggestionIndex(-1);
       } else {
         inputRef.current?.blur();
+        mobileInputRef.current?.blur();
       }
     }
   };
@@ -320,7 +415,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     executeSearch(query.trim(), selectedCategory);
   };
 
-  // Task 4: Clear Button & Instant State Reset
+  // Task 4: Clear Button & Instant State Reset (Mobile Input Ref Aware)
   const handleClear = (e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
@@ -328,15 +423,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     setActiveSuggestionIndex(-1);
     setIsDropdownOpen(true);
     setIsFocused(true);
-    inputRef.current?.focus();
+    if (isMobile) {
+      mobileInputRef.current?.focus();
+    } else {
+      inputRef.current?.focus();
+    }
   };
 
+  // Task 27: Direct routing to Product Detail Page (PDP) on click
   const handleSelectBook = (book: LiveSearchResultItem) => {
     saveSearchTerm(book.title, book.category);
     setIsDropdownOpen(false);
     setIsFocused(false);
     setActiveSuggestionIndex(-1);
-    router.push(`/search?q=${encodeURIComponent(book.title)}&category=${encodeURIComponent(book.category)}`);
+    router.push(`/book/${encodeURIComponent(book.slug || book.bookId || book.id)}`);
   };
 
   const showDropdown = isDropdownOpen && isFocused;
@@ -475,40 +575,77 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             id="live-search-suggestions-listbox"
             role="listbox"
             aria-label="লাইভ সার্চ ফলাফল"
-            className={`bg-white border border-gray-300 z-50 overflow-hidden py-2 ${
+            className={`bg-white border border-gray-300 z-50 overflow-hidden ${
               isMobile
-                ? 'fixed inset-0 max-h-none rounded-none overflow-y-auto pt-3 px-2 shadow-2xl'
-                : 'absolute left-0 right-0 top-full mt-1 rounded-b-md shadow-2xl max-h-[420px] overflow-y-auto'
+                ? 'fixed inset-0 max-h-none rounded-none pt-0 px-0 shadow-2xl flex flex-col h-[100dvh] w-full'
+                : 'absolute left-0 right-0 top-full mt-1 rounded-b-md shadow-2xl max-h-[420px] overflow-y-auto py-2'
             }`}
           >
-            {/* Task 28: Mobile Full-Screen Header with Back Button */}
+            {/* Task 28: Mobile Full-Screen Header with Integrated Search Input & Back Button */}
             {isMobile && (
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 mb-2 bg-gray-50 rounded-md">
+              <div className="sticky top-0 z-10 bg-white px-3 py-2.5 border-b border-gray-200 flex items-center gap-2 shadow-xs shrink-0">
                 <button
                   type="button"
                   onClick={() => {
+                    inputRef.current?.blur();
+                    mobileInputRef.current?.blur();
                     setIsDropdownOpen(false);
                     setIsFocused(false);
+                    setActiveSuggestionIndex(-1);
                   }}
-                  className="flex items-center gap-1.5 text-xs text-gray-700 font-bold p-1 cursor-pointer"
+                  className="p-1.5 -ml-1 text-gray-700 hover:text-gray-950 hover:bg-gray-100 rounded-full cursor-pointer shrink-0"
+                  aria-label={isBengali ? 'ফিরে যান' : 'Back'}
                 >
-                  <span className="text-sm font-bold">←</span>
-                  <span>{isBengali ? 'ফিরে যান' : 'Back'}</span>
+                  <span className="text-lg font-bold leading-none">←</span>
                 </button>
-                <span className="text-xs font-semibold text-gray-500 truncate max-w-[160px]">
-                  {query ? `"${query}"` : (isBengali ? 'অনুসন্ধান' : 'Search')}
-                </span>
-                {query && (
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    className="text-xs text-amber-700 font-bold p-1 cursor-pointer hover:underline"
-                  >
-                    {isBengali ? 'মুছুন' : 'Clear'}
-                  </button>
-                )}
+
+                <div className="flex-1 flex items-center bg-gray-100 rounded-full px-3 py-1.5 border border-gray-200 focus-within:border-amber-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-amber-200 transition-all">
+                  <Search className="w-4 h-4 text-gray-400 shrink-0 mr-2" />
+                  <input
+                    ref={mobileInputRef}
+                    type="text"
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setIsDropdownOpen(true);
+                      setActiveSuggestionIndex(-1);
+                    }}
+                    onKeyDown={handleInputKeyDown}
+                    placeholder={rotatingPlaceholders[placeholderIndex]}
+                    autoFocus
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    enterKeyHint="search"
+                    inputMode="search"
+                    className="w-full bg-transparent text-[16px] text-gray-900 outline-none font-medium placeholder:text-gray-400"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="p-1 text-gray-400 hover:text-gray-700 cursor-pointer shrink-0"
+                      aria-label={dict.search.clear}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (query.trim()) executeSearch(query.trim(), selectedCategory);
+                  }}
+                  className="bg-[#febd69] hover:bg-[#f3a847] active:bg-[#e47911] text-gray-900 font-semibold text-xs px-3.5 py-2 rounded-full cursor-pointer shrink-0 shadow-2xs"
+                >
+                  {isBengali ? 'সার্চ' : 'Search'}
+                </button>
               </div>
             )}
+
+            <div className={isMobile ? 'flex-1 overflow-y-auto px-2 py-2' : ''}>
             {/* STATE A: User typed 1 character (Task 1: Activation Threshold Warning) */}
             {query.trim().length === 1 && (
               <div className="px-4 py-3 text-xs text-gray-500 flex items-center gap-2 bg-amber-50/50 border-b border-amber-100/60">
@@ -639,14 +776,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             {/* STATE C: User typed >= 2 characters -> Show Live Search Results */}
             {isThresholdMet && (
               <div className="divide-y divide-gray-100 text-xs">
-                {/* 1. Keyword Suggestions */}
-                {keywords.length > 0 && (
+                {/* 1. Keyword Suggestions (Strict Quota: Max 4) */}
+                {displayKeywords.length > 0 && (
                   <div className="py-1">
                     <div className="px-3 py-1 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                       {isBengali ? 'সাজেস্টেড কি-ওয়ার্ড' : 'Suggested Keywords'}
                     </div>
                     <ul>
-                      {keywords.map((kw, idx) => {
+                      {displayKeywords.map((kw, idx) => {
                         const isSelected = activeSuggestionIndex === idx;
                         return (
                           <li
@@ -677,18 +814,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   </div>
                 )}
 
-                {/* 2. Top Books Matches (with Covers, Prices & Discounts) */}
-                {books.length > 0 && (
+                {/* 2. Top Books Matches (Strict Quota: Max 4 with Icons, Prices & Discounts) */}
+                {displayBooks.length > 0 && (
                   <div className="py-1">
                     <div className="px-3 py-1 text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center justify-between">
                       <span>{isBengali ? 'বইয়ের সরাসরি ফলাফল' : 'Book Matches'}</span>
                       <span className="text-gray-400 lowercase font-normal">
-                        {books.length} {isBengali ? 'টি বই' : 'items'}
+                        {displayBooks.length} {isBengali ? 'টি বই' : 'items'}
                       </span>
                     </div>
                     <ul className="divide-y divide-gray-50">
-                      {books.map((book, bIdx) => {
-                        const itemIdx = keywords.length + bIdx;
+                      {displayBooks.map((book, bIdx) => {
+                        const itemIdx = displayKeywords.length + bIdx;
                         const isSelected = activeSuggestionIndex === itemIdx;
                         return (
                           <li
@@ -699,42 +836,51 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                             onMouseEnter={() => setActiveSuggestionIndex(itemIdx)}
                             onClick={() => handleSelectBook(book)}
                             className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
+                              !book.inStock ? 'opacity-75 grayscale-[0.25]' : ''
+                            } ${
                               isSelected
                                 ? 'bg-amber-100/90 text-gray-950 ring-1 ring-amber-300 font-medium'
                                 : 'hover:bg-gray-50 text-gray-800'
                             }`}
                           >
-                            {/* Book Cover Thumbnail */}
-                            <div className="w-9 h-12 bg-gray-100 rounded border border-gray-200 shrink-0 flex items-center justify-center overflow-hidden">
-                              {book.coverImage ? (
+                            {/* Book Cover Thumbnail with Graceful Placeholder Fallback */}
+                            <div className="w-9 h-12 bg-gray-100 rounded border border-gray-200 shrink-0 flex items-center justify-center overflow-hidden relative">
+                              <BookOpen className="w-5 h-5 text-gray-400 absolute inset-0 m-auto" />
+                              {book.coverImage && (
                                 <img
                                   src={book.coverImage}
                                   alt={book.title}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-cover relative z-10"
                                   onError={(e) => {
                                     (e.target as HTMLElement).style.display = 'none';
                                   }}
                                 />
-                              ) : (
-                                <BookOpen className="w-5 h-5 text-gray-400" />
                               )}
                             </div>
 
-                            {/* Book Details */}
+                            {/* Book Details with Task 23 Iconography */}
                             <div className="flex-1 min-w-0">
                               <h4 className="font-semibold text-xs text-gray-900 truncate leading-snug">
                                 {highlightMatch(isBengali ? book.titleBn : book.title, query)}
                               </h4>
-                              <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                                {isBengali ? book.authorBn : book.author} • {book.publisher}
-                              </p>
+                              <div className="text-[11px] text-gray-500 truncate mt-0.5 flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-gray-700 truncate">
+                                  <User className="w-3 h-3 text-amber-700 shrink-0" />
+                                  <span className="truncate">{isBengali ? book.authorBn : book.author}</span>
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="inline-flex items-center gap-1 text-gray-500 truncate">
+                                  <Building2 className="w-3 h-3 text-gray-400 shrink-0" />
+                                  <span className="truncate">{book.publisher}</span>
+                                </span>
+                              </div>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="font-bold text-sm text-gray-900">
-                                  ₹{book.price}
+                                  {formatINR(book.price, language)}
                                 </span>
                                 {book.mrp > book.price && (
                                   <span className="text-[11px] text-gray-400 line-through">
-                                    ₹{book.mrp}
+                                    {formatINR(book.mrp, language)}
                                   </span>
                                 )}
                                 {book.discount && (
@@ -756,15 +902,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   </div>
                 )}
 
-                {/* 3. Matching Category Shortcuts */}
-                {categories.length > 0 && (
+                {/* 3. Matching Category Shortcuts (Strict Quota: Max 2) */}
+                {displayCategories.length > 0 && (
                   <div className="py-1">
                     <div className="px-3 py-1 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                       {isBengali ? 'বিভাগ অনুসারে খুঁজুন' : 'In Departments'}
                     </div>
                     <ul>
-                      {categories.map((cat, cIdx) => {
-                        const itemIdx = keywords.length + books.length + cIdx;
+                      {displayCategories.map((cat, cIdx) => {
+                        const itemIdx = displayKeywords.length + displayBooks.length + cIdx;
                         const isSelected = activeSuggestionIndex === itemIdx;
                         return (
                           <li
@@ -796,38 +942,69 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   </div>
                 )}
 
-                {/* 4. "Did you mean" typo suggestion (Task 38) */}
-                {didYouMean && (
-                  <div className="px-3 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50/60 border-y border-amber-200/80 text-xs text-amber-950 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 truncate">
-                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
-                      <span className="shrink-0">{isBengali ? 'আপনি কি বোঝাতে চেয়েছেন:' : 'Did you mean:'}</span>
+                {/* 4. "Did you mean" typo suggestion (Task 38 & Keyboard Navigable) */}
+                {didYouMean && (() => {
+                  const didYouMeanIdx = displayKeywords.length + displayBooks.length + displayCategories.length;
+                  const isSelected = activeSuggestionIndex === didYouMeanIdx;
+                  return (
+                    <div
+                      id={`search-item-${didYouMeanIdx}`}
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseEnter={() => setActiveSuggestionIndex(didYouMeanIdx)}
+                      className={`px-3 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50/60 border-y border-amber-200/80 text-xs text-amber-950 flex items-center justify-between gap-2 transition-all ${
+                        isSelected ? 'ring-2 ring-amber-400 bg-amber-100/90 font-bold shadow-xs' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+                        <span className="shrink-0">{isBengali ? 'আপনি কি বোঝাতে চেয়েছেন:' : 'Did you mean:'}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuery(didYouMean);
+                            executeSearch(didYouMean, selectedCategory);
+                          }}
+                          className="font-bold underline text-amber-800 hover:text-amber-950 truncate cursor-pointer"
+                        >
+                          {didYouMean}
+                        </button>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           setQuery(didYouMean);
                           executeSearch(didYouMean, selectedCategory);
                         }}
-                        className="font-bold underline text-amber-800 hover:text-amber-950 truncate cursor-pointer"
+                        className="text-[11px] font-bold bg-amber-200/80 hover:bg-amber-300 text-amber-900 px-2 py-0.5 rounded cursor-pointer transition-colors shrink-0"
                       >
-                        {didYouMean}
+                        {isBengali ? 'খুঁজুন' : 'Search'}
                       </button>
                     </div>
+                  );
+                })()}
+
+                {/* 5. Error Alert or Empathetic Zero Results Screen (Tasks 36, 37, 39) */}
+                {!isLoading && error && (
+                  <div className="px-4 py-4 text-center space-y-2">
+                    <p className="text-xs text-red-600 font-medium">
+                      {isBengali ? 'সার্চ ফলাফলে সমস্যা হয়েছে। ইন্টারনেট সংযোগ বা সার্ভার চেক করুন।' : error}
+                    </p>
                     <button
                       type="button"
                       onClick={() => {
-                        setQuery(didYouMean);
-                        executeSearch(didYouMean, selectedCategory);
+                        const cur = query;
+                        setQuery('');
+                        setTimeout(() => setQuery(cur), 50);
                       }}
-                      className="text-[11px] font-bold bg-amber-200/80 hover:bg-amber-300 text-amber-900 px-2 py-0.5 rounded cursor-pointer transition-colors shrink-0"
+                      className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded cursor-pointer transition-colors shadow-2xs"
                     >
-                      {isBengali ? 'খুঁজুন' : 'Search'}
+                      {isBengali ? 'পুনরায় চেষ্টা করুন' : 'Retry'}
                     </button>
                   </div>
                 )}
 
-                {/* 5. Empathetic Zero Results Screen (Tasks 36, 37, 39) */}
-                {!isLoading && books.length === 0 && keywords.length === 0 && (
+                {!isLoading && !error && books.length === 0 && keywords.length === 0 && (
                   <div className="px-4 py-4 text-center space-y-3">
                     {/* Empathetic & Comforting Message (Task 37) */}
                     <div className="space-y-1">
@@ -846,26 +1023,30 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                       </p>
                     </div>
 
-                    {/* Quick Subject Suggestion Chips */}
+                    {/* Quick Subject Suggestion Chips (Task 6 Keyboard Navigable) */}
                     <div className="pt-0.5">
                       <div className="flex flex-wrap justify-center gap-1.5">
-                        {[
-                          { label: 'WBCS', labelBn: 'WBCS ২০২৬' },
-                          { label: 'History', labelBn: 'ইতিহাস' },
-                          { label: 'UGB Sem 4', labelBn: 'গৌড়বঙ্গ UGB' },
-                          { label: 'Primary TET', labelBn: 'প্রাইমারি টেট' },
-                          { label: 'Bengali Literature', labelBn: 'সাহিত্য' },
-                        ].map((chip, cIdx) => {
+                        {ZERO_RESULT_CHIPS.map((chip, cIdx) => {
                           const chipText = isBengali ? chip.labelBn : chip.label;
+                          const itemIdx = (didYouMean ? 1 : 0) + cIdx;
+                          const isSelected = activeSuggestionIndex === itemIdx;
                           return (
                             <button
                               key={cIdx}
+                              id={`search-item-${itemIdx}`}
+                              role="option"
+                              aria-selected={isSelected}
                               type="button"
+                              onMouseEnter={() => setActiveSuggestionIndex(itemIdx)}
                               onClick={() => {
                                 setQuery(chipText);
                                 executeSearch(chipText, selectedCategory);
                               }}
-                              className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 hover:bg-amber-100 text-gray-700 hover:text-amber-900 border border-gray-200 transition-colors cursor-pointer"
+                              className={`text-[11px] px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-200/90 text-amber-950 font-bold border-amber-400 ring-1 ring-amber-400 scale-[1.02]'
+                                  : 'bg-gray-100 hover:bg-amber-100 text-gray-700 hover:text-amber-900 border-gray-200'
+                              }`}
                             >
                               {chipText}
                             </button>
@@ -874,44 +1055,70 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                       </div>
                     </div>
 
-                    {/* Task 36: Personalized Recommendations or Alternative Bestsellers */}
+                    {/* Task 36: Personalized Recommendations or Alternative Bestsellers (With Cover Images) */}
                     {personalizedRecommendations.length > 0 && (
                       <div className="pt-2 border-t border-gray-100 text-left">
                         <div className="flex items-center justify-between mb-1.5 px-0.5">
                           <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                             {isBengali ? 'আপনার জন্য বিকল্প বই:' : 'Recommended alternatives:'}
                           </span>
-                          {preferredCategory && (
-                            <span className="text-amber-700 font-medium text-[10px] bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                              {preferredCategory}
-                            </span>
-                          )}
+                          {preferredCategory && (() => {
+                            const matchedCat = SEARCH_CATEGORIES.find((c) => c.id === preferredCategory);
+                            const catLabel = matchedCat ? (isBengali ? matchedCat.nameBn : matchedCat.name) : preferredCategory;
+                            return (
+                              <span className="text-amber-700 font-medium text-[10px] bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                                {catLabel}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="space-y-1">
-                          {personalizedRecommendations.slice(0, 2).map((recBook: any) => (
-                            <div
-                              key={recBook.id}
-                              onClick={() => handleSelectBook(recBook)}
-                              className="flex items-center justify-between p-1.5 rounded hover:bg-amber-50/80 cursor-pointer border border-gray-100 transition-colors"
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <div className="w-6 h-8 bg-amber-100/70 rounded shrink-0 flex items-center justify-center text-amber-700 border border-amber-200">
-                                  <BookOpen className="w-3.5 h-3.5" />
+                          {personalizedRecommendations.slice(0, 2).map((recBook: any, rIdx: number) => {
+                            const itemIdx = (didYouMean ? 1 : 0) + ZERO_RESULT_CHIPS.length + rIdx;
+                            const isSelected = activeSuggestionIndex === itemIdx;
+                            return (
+                              <div
+                                key={recBook.id}
+                                id={`search-item-${itemIdx}`}
+                                role="option"
+                                aria-selected={isSelected}
+                                onMouseEnter={() => setActiveSuggestionIndex(itemIdx)}
+                                onClick={() => handleSelectBook(recBook)}
+                                className={`flex items-center justify-between p-1.5 rounded cursor-pointer border transition-colors ${
+                                  isSelected
+                                    ? 'bg-amber-100/90 text-gray-950 ring-1 ring-amber-300 font-medium border-amber-300'
+                                    : 'border-gray-100 hover:bg-amber-50/80'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <div className="w-6 h-8 bg-amber-100/70 rounded shrink-0 flex items-center justify-center text-amber-700 border border-amber-200 overflow-hidden relative">
+                                    <BookOpen className="w-3.5 h-3.5 text-amber-700 absolute inset-0 m-auto" />
+                                    {recBook.coverImage && (
+                                      <img
+                                        src={recBook.coverImage}
+                                        alt={recBook.title}
+                                        className="w-full h-full object-cover relative z-10"
+                                        onError={(e) => {
+                                          (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="truncate">
+                                    <p className="text-xs font-medium text-gray-800 truncate">
+                                      {isBengali ? recBook.titleBn : recBook.title}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 truncate">
+                                      {isBengali ? recBook.authorBn : recBook.author}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="truncate">
-                                  <p className="text-xs font-medium text-gray-800 truncate">
-                                    {isBengali ? recBook.titleBn : recBook.title}
-                                  </p>
-                                  <p className="text-[10px] text-gray-500 truncate">
-                                    {isBengali ? recBook.authorBn : recBook.author}
-                                  </p>
+                                <div className="text-right shrink-0 ml-2">
+                                  <span className="text-xs font-bold text-red-600">{formatINR(recBook.price, language)}</span>
                                 </div>
                               </div>
-                              <div className="text-right shrink-0 ml-2">
-                                <span className="text-xs font-bold text-red-600">₹{recBook.price}</span>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -947,35 +1154,50 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   </div>
                 )}
 
-                {/* 6. "See all results..." Footer Link — only when there are results or loading */}
-                {(books.length > 0 || keywords.length > 0 || isLoading) && (
-                  <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (query.trim()) executeSearch(query.trim(), selectedCategory);
-                      }}
-                      className="text-xs font-semibold text-amber-700 hover:text-amber-800 hover:underline flex items-center gap-1 cursor-pointer"
+                {/* 6. "See all results..." Footer Link — Keyboard Navigable (Task 26) */}
+                {(books.length > 0 || keywords.length > 0 || isLoading) && (() => {
+                  const seeAllIdx = displayKeywords.length + displayBooks.length + displayCategories.length + (didYouMean ? 1 : 0);
+                  const isSelected = activeSuggestionIndex === seeAllIdx;
+                  return (
+                    <div
+                      id={`search-item-${seeAllIdx}`}
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseEnter={() => setActiveSuggestionIndex(seeAllIdx)}
+                      className={`px-3 py-2 border-t border-gray-100 flex items-center justify-between transition-colors ${
+                        isSelected ? 'bg-amber-100/90 text-amber-950 font-bold ring-1 ring-amber-300' : 'bg-gray-50'
+                      }`}
                     >
-                      <span>
-                        {isBengali
-                          ? `"${query}" এর সমস্ত ফলাফল দেখুন`
-                          : `See all results for "${query}"`}
-                      </span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </button>
-                    {executionTimeMs > 0 && (
-                      <span className="text-[10px] text-gray-400">
-                        {executionTimeMs}ms
-                      </span>
-                    )}
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (query.trim()) executeSearch(query.trim(), selectedCategory);
+                        }}
+                        className={`text-xs font-semibold flex items-center gap-1 cursor-pointer ${
+                          isSelected ? 'text-amber-950 font-bold underline' : 'text-amber-700 hover:text-amber-800 hover:underline'
+                        }`}
+                      >
+                        <span>
+                          {isBengali
+                            ? `"${query}" এর সমস্ত ${totalCount > 0 ? `${totalCount}টি ` : ''}ফলাফল দেখুন`
+                            : `See all ${totalCount > 0 ? `${totalCount} ` : ''}results for "${query}"`}
+                        </span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                      {executionTimeMs > 0 && (
+                        <span className="text-[10px] text-gray-400">
+                          {executionTimeMs}ms
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
-        )}
-      </form>
-    </>
-  );
+        </div>
+      )}
+    </form>
+  </>
+);
 };

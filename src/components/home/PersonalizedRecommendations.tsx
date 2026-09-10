@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useBrowsingHistory } from '@/hooks/useBrowsingHistory';
 import { ProductCarousel } from './ProductCarousel';
 import { CarouselCollection, CarouselProduct } from '@/types/carousel';
@@ -17,16 +17,53 @@ interface PersonalizedRecommendationsProps {
 
 export function PersonalizedRecommendations({ className = '' }: PersonalizedRecommendationsProps) {
   const { history, bookIds, categories, clearHistory, hasHistory, isInitialized } = useBrowsingHistory();
+  const [examPreferences, setExamPreferences] = useState<string[]>([]);
+
+  // Task 32: Synchronize customer's exam preparation goals (WBCS, UGB, Primary TET, etc.)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('mm_user_exam_preferences');
+      if (stored) {
+        setExamPreferences(JSON.parse(stored));
+      }
+    } catch {
+      // Safe fallback
+    }
+
+    const handlePrefChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ preferences?: string[] }>;
+      if (customEvent.detail?.preferences) {
+        setExamPreferences(customEvent.detail.preferences);
+      }
+    };
+
+    window.addEventListener('mm_exam_preference_changed', handlePrefChange);
+    return () => window.removeEventListener('mm_exam_preference_changed', handlePrefChange);
+  }, []);
 
   // Combine all available books
   const allBooks = useMemo<CarouselProduct[]>(() => {
     return [...WBCS_BESTSELLERS, ...MALDA_STUDENT_FAVORITES, ...UGB_COLLEGE_TEXTBOOKS];
   }, []);
 
-  // Compute recommended books based on history or fallback
+  // Compute recommended books based on exam preferences and browsing history
   const recommendedItems = useMemo<CarouselProduct[]>(() => {
-    if (!hasHistory) {
-      // Fallback: Pick top 8 diverse bestsellers for new users
+    const examMatched: CarouselProduct[] = [];
+
+    // Prioritize by selected exam target
+    if (examPreferences.includes('wbcs')) {
+      examMatched.push(...WBCS_BESTSELLERS.slice(0, 4));
+    }
+    if (examPreferences.includes('ugb')) {
+      examMatched.push(...UGB_COLLEGE_TEXTBOOKS.slice(0, 4));
+    }
+    if (examPreferences.includes('primary_tet') || examPreferences.includes('railway') || examPreferences.includes('ssc_cgl')) {
+      examMatched.push(...MALDA_STUDENT_FAVORITES.slice(0, 3));
+    }
+
+    if (!hasHistory && examMatched.length === 0) {
+      // Fallback: Pick top diverse bestsellers for new users with safe defensive filtering
       return [
         WBCS_BESTSELLERS[0],
         MALDA_STUDENT_FAVORITES[0],
@@ -36,10 +73,10 @@ export function PersonalizedRecommendations({ className = '' }: PersonalizedReco
         UGB_COLLEGE_TEXTBOOKS[1],
         MALDA_STUDENT_FAVORITES[1],
         WBCS_BESTSELLERS[6],
-      ];
+      ].filter((item): item is CarouselProduct => Boolean(item));
     }
 
-    // Has history: Prioritize books in the same categories as browsed, and maintain recency order for viewed books
+    // Has history: Prioritize viewed books & matched categories
     const viewedBooks = bookIds
       .map((id) => allBooks.find((b) => b.bookId === id))
       .filter(Boolean) as CarouselProduct[];
@@ -48,26 +85,40 @@ export function PersonalizedRecommendations({ className = '' }: PersonalizedReco
       categories.includes(book.category) && !bookIds.includes(book.bookId)
     );
 
-    const merged = [...viewedBooks, ...categoryMatched];
+    // Deduplicate merged list: Exam Target Goals first, then Viewed, then Category
+    const seenIds = new Set<string>();
+    const merged: CarouselProduct[] = [];
+
+    for (const b of [...examMatched, ...viewedBooks, ...categoryMatched]) {
+      if (!seenIds.has(b.bookId)) {
+        seenIds.add(b.bookId);
+        merged.push(b);
+      }
+    }
 
     // If still less than 6, fill with top-rated
     if (merged.length < 6) {
-      const remaining = allBooks.filter((b) => !merged.some((m) => m.bookId === b.bookId));
+      const remaining = allBooks.filter((b) => !seenIds.has(b.bookId));
       return [...merged, ...remaining].slice(0, 10);
     }
 
     return merged.slice(0, 12);
-  }, [hasHistory, categories, bookIds, allBooks]);
+  }, [hasHistory, categories, bookIds, allBooks, examPreferences]);
 
   const collection = useMemo<CarouselCollection>(() => {
-    if (hasHistory) {
+    const hasExamPref = examPreferences.length > 0;
+    if (hasExamPref || hasHistory) {
       return {
         id: 'personalized-browsing-collection',
-        title: 'Recommended Based on Your Browsing',
-        titleBn: 'আপনার সাম্প্রতিক আগ্রহের ভিত্তিতে নির্বাচিত বই',
-        subtitleBn: 'আপনার ব্রাউজিং ও পছন্দের বিভাগের ওপর ভিত্তি করে বিশেষ সংকলন',
+        title: 'Recommended for Your Studies',
+        titleBn: hasExamPref
+          ? 'আপনার পরীক্ষার লক্ষ্য ও আগ্রহের ভিত্তিতে নির্বাচিত বই'
+          : 'আপনার সাম্প্রতিক আগ্রহের ভিত্তিতে নির্বাচিত বই',
+        subtitleBn: hasExamPref
+          ? 'আপনার প্রোফাইলে নির্বাচিত লক্ষ্য (WBCS/UGB/TET) অনুযায়ী বিশেষ সুপারিশ'
+          : 'আপনার ব্রাউজিং ও পছন্দের বিভাগের ওপর ভিত্তি করে বিশেষ সংকলন',
         viewAllUrl: '/search?category=all',
-        badgeTextBn: '🎯 ব্যক্তিগতকৃত রিকমেন্ডেশন',
+        badgeTextBn: hasExamPref ? '🎯 আপনার পরীক্ষার লক্ষ্য' : '🎯 ব্যক্তিগতকৃত রিকমেন্ডেশন',
         items: recommendedItems,
       };
     }

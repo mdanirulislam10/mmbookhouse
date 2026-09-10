@@ -152,12 +152,12 @@ export function AmazonProductCard({
           </button>
         </div>
 
-        {/* Point 2: Book Title (2-line clamp) */}
+        {/* Point 2: Book Title (2-line clamp) with Direct PDP Link */}
         <div>
           <h3 className="text-xs sm:text-sm font-bold text-gray-900 font-bengali line-clamp-2 leading-snug group-hover:text-amber-800 transition-colors min-h-[2.4rem]">
             <Link
-              href={`/search?query=${encodeURIComponent(product.titleBn)}`}
-              title={product.titleBn}
+              href={`/book/${product.slug || product.bookId}`}
+              title={`${product.titleBn} এর বিস্তারিত পেজ দেখুন`}
               className="hover:underline"
             >
               {product.titleBn}

@@ -1,6 +1,7 @@
 export interface CarouselProduct {
   id: string;
   bookId: string;
+  slug?: string;
   title: string;
   titleBn: string;
   author: string;

@@ -6,25 +6,9 @@ import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { QuadCardBlock } from '@/types/quadCard';
 
-// Shimmer effect placeholder for blur image loading
-const shimmerSvg = (w: number, h: number) => `
-<svg width="${w}" height="${h}" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-  <defs>
-    <linearGradient id="g">
-      <stop stop-color="#f3f4f6" offset="20%" />
-      <stop stop-color="#e5e7eb" offset="50%" />
-      <stop stop-color="#f3f4f6" offset="70%" />
-    </linearGradient>
-  </defs>
-  <rect width="${w}" height="${h}" fill="#f3f4f6" />
-  <rect id="r" width="${w}" height="${h}" fill="url(#g)" />
-  <animate xlink:href="#r" attributeName="x" from="-${w}" to="${w}" dur="1s" repeatCount="indefinite"  />
-</svg>`;
-
-const toBase64 = (str: string) =>
-  typeof window === 'undefined' ? Buffer.from(str).toString('base64') : window.btoa(str);
-
-const SHIMMER_BLUR_DATA_URL = `data:image/svg+xml;base64,${toBase64(shimmerSvg(300, 225))}`;
+// Safe Data URL for blur image loading preview without Buffer/btoa dependency
+const SHIMMER_BLUR_DATA_URL =
+  'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%20225%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%3E%3Cstop%20stop-color%3D%22%23f3f4f6%22%20offset%3D%2220%25%22%2F%3E%3Cstop%20stop-color%3D%22%23e5e7eb%22%20offset%3D%2250%25%22%2F%3E%3Cstop%20stop-color%3D%22%23f3f4f6%22%20offset%3D%2270%25%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22300%22%20height%3D%22225%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Crect%20id%3D%22r%22%20width%3D%22300%22%20height%3D%22225%22%20fill%3D%22url(%23g)%22%2F%3E%3C%2Fsvg%3E';
 
 interface QuadCategoryCardProps {
   block: QuadCardBlock;

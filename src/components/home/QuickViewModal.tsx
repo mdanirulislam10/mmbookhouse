@@ -410,10 +410,11 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 </button>
               </div>
 
-              {/* View Full Product Details Link */}
+              {/* View Full Product Details Link (Direct PDP Link) */}
               <div className="flex items-center justify-between text-xs pt-1 text-gray-500">
                 <Link
-                  href={`/search?query=${encodeURIComponent(product.titleBn)}`}
+                  href={`/book/${product.slug || product.bookId}`}
+                  onClick={onClose}
                   className="text-blue-700 hover:text-amber-800 hover:underline flex items-center gap-1 font-medium"
                 >
                   <span>সম্পূর্ণ প্রোডাক্ট পেজ ও অতিরিক্ত রিভিউ দেখুন</span>

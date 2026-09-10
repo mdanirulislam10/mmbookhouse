@@ -5,7 +5,6 @@ import { QuadCategoryCard } from './QuadCategoryCard';
 import { SpotlightAuthCard } from './SpotlightAuthCard';
 import { QuadCardSkeleton } from './QuadCardSkeleton';
 import { CURATED_QUAD_CARDS } from '@/lib/data/quadCards';
-import { Layers, User, BookCheck, Eye } from 'lucide-react';
 
 interface FloatingCardGridProps {
   className?: string;
@@ -25,57 +24,6 @@ export const FloatingCardGrid: React.FC<FloatingCardGridProps> = ({
       aria-label="অ্যামাজন সিগনেচার ভাসমান কার্ড গ্রিড"
       className={`relative z-10 -mt-16 sm:-mt-24 md:-mt-32 max-w-[1400px] mx-auto px-2 sm:px-4 ${className}`}
     >
-      {/* Visual Architectural Control Header (Tasks 11 & 16) */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3 px-2 text-xs text-gray-700">
-        <div className="flex items-center gap-1.5 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full border border-gray-200/80 shadow-xs">
-          <Layers className="w-3.5 h-3.5 text-amber-600" />
-          <span className="font-bengali font-semibold text-[11px] sm:text-xs text-gray-900">
-            অ্যামাজন ভাসমান কোয়াড গ্রিড (ভাগ ৪: কাজ ১৬–২০)
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-md p-1 rounded-lg border border-gray-200 shadow-xs">
-          {/* Skeleton Toggle for Verification (Task 19) */}
-          <button
-            onClick={() => setShowSkeletonDemo(!showSkeletonDemo)}
-            className={`px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold font-bengali transition-all flex items-center gap-1 cursor-pointer ${
-              showSkeletonDemo
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-            title="কাজ ১৯: স্কেলিটন প্রিভিউ টগল করুন"
-          >
-            <Eye className="w-3 h-3" />
-            <span>{showSkeletonDemo ? 'লাইভ কার্ড দেখুন' : 'স্কেলিটন প্রিভিউ'}</span>
-          </button>
-
-          {/* 4th Card Slot View Switcher (Task 13 & 14) */}
-          <button
-            onClick={() => setFourthCardMode('auth')}
-            className={`px-2.5 py-0.5 rounded text-[10px] sm:text-[11px] font-bold font-bengali transition-all flex items-center gap-1 cursor-pointer ${
-              fourthCardMode === 'auth' && !showSkeletonDemo
-                ? 'bg-amber-500 text-gray-950 shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-            title="৪র্থ কার্ডে সাইন-ইন ও স্পটলাইট ভিউ দেখুন"
-          >
-            <User className="w-3 h-3" />
-            <span>স্পটলাইট প্রম্পট</span>
-          </button>
-          <button
-            onClick={() => setFourthCardMode('school')}
-            className={`px-2.5 py-0.5 rounded text-[10px] sm:text-[11px] font-bold font-bengali transition-all flex items-center gap-1 cursor-pointer ${
-              fourthCardMode === 'school' && !showSkeletonDemo
-                ? 'bg-amber-500 text-gray-950 shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-            title="৪র্থ কার্ডে মাধ্যমিক ও উচ্চমাধ্যমিক টেস্ট পেপারস দেখুন"
-          >
-            <BookCheck className="w-3 h-3" />
-            <span>স্কুল টেস্ট পেপারস</span>
-          </button>
-        </div>
-      </div>
 
       {/* Task 16 & 19: Multi-Device Responsive Grid (Mobile 1-col, Tablet 2-col, Desktop 4-col) */}
       {showSkeletonDemo ? (
@@ -105,23 +53,46 @@ export const FloatingCardGrid: React.FC<FloatingCardGridProps> = ({
         </div>
       )}
 
-      {/* Secondary Quick Banner for School Test Papers if Auth Card is active */}
-      {!showSkeletonDemo && fourthCardMode === 'auth' && (
+      {/* Secondary Quick Banner for switching between School Test Papers and Auth Card */}
+      {!showSkeletonDemo && (
         <div className="mt-4 p-3 bg-white/95 backdrop-blur-md rounded-lg border border-gray-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded font-bengali">
-              মাধ্যমিক ও উচ্চমাধ্যমিক ২০২৬
-            </span>
-            <span className="text-xs text-gray-800 font-bold font-bengali">
-              ABTA, WBTA, ছায়া ও রায় অ্যান্ড মার্টিন টেস্ট পেপারস ও প্রশ্নবিচিত্রা এখন স্টোরে মজুত
-            </span>
-          </div>
-          <button
-            onClick={() => setFourthCardMode('school')}
-            className="text-xs font-bold text-sky-700 hover:text-amber-700 font-bengali underline flex items-center gap-1 cursor-pointer"
-          >
-            ৪র্থ কার্ডে টেস্ট পেপারস গ্রিড দেখুন →
-          </button>
+          {fourthCardMode === 'auth' ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded font-bengali">
+                  মাধ্যমিক ও উচ্চমাধ্যমিক ২০২৬
+                </span>
+                <span className="text-xs text-gray-800 font-bold font-bengali">
+                  ABTA, WBTA, ছায়া ও রায় অ্যান্ড মার্টিন টেস্ট পেপারস ও প্রশ্নবিচিত্রা এখন স্টোরে মজুত
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFourthCardMode('school')}
+                className="text-xs font-bold text-sky-700 hover:text-amber-700 font-bengali underline flex items-center gap-1 cursor-pointer"
+              >
+                ৪র্থ কার্ডে টেস্ট পেপারস গ্রিড দেখুন →
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded font-bengali">
+                  ব্যক্তিগতকৃত স্পটলাইট
+                </span>
+                <span className="text-xs text-gray-800 font-bold font-bengali">
+                  আপনার অ্যাকাউন্ট, অর্ডার ও ব্যক্তিগত পছন্দের বই ব্রাউজ করুন
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFourthCardMode('auth')}
+                className="text-xs font-bold text-sky-700 hover:text-amber-700 font-bengali underline flex items-center gap-1 cursor-pointer"
+              >
+                ← ৪র্থ কার্ডে সাইন-ইন / প্রোফাইল হাব দেখুন
+              </button>
+            </>
+          )}
         </div>
       )}
     </section>

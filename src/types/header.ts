@@ -7,7 +7,10 @@ export type AppLanguage = 'bn' | 'en';
 export interface AuthProfile {
   id: string;
   fullName: string;
+  phoneNumber?: string;
+  altPhoneNumber?: string;
   email: string;
+  isEmailVerified?: boolean;
   avatarUrl?: string;
   isLoggedIn: boolean;
 }

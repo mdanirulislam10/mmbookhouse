@@ -31,6 +31,9 @@ const config: Config = {
         bengali: ["var(--font-bengali)", "'Hind Siliguri'", "'Noto Sans Bengali'", "sans-serif"],
         outfit: ["var(--font-outfit)", "'Outfit'", "Inter", "sans-serif"],
       },
+      backdropBlur: {
+        xs: '2px',
+      },
     },
   },
   plugins: [],
