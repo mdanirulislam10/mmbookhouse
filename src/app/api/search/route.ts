@@ -1,47 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BOOKS_CATALOG } from '@/lib/data/booksCatalog';
-import { SEARCH_CATEGORIES, LiveSearchResponse, LiveSearchCategoryMatch } from '@/types/search';
+import { SEARCH_CATEGORIES, LiveSearchResponse, LiveSearchCategoryMatch, LiveSearchResultItem } from '@/types/search';
 import {
   sanitizeSearchText,
+  sanitizeQueryForSecurity,
   expandSynonyms,
   transliterateRomanToBengali,
   resolveAuthorPhonetics,
   scoreBookMatch,
   ScoredMatch,
   isWithinLevenshteinMargin,
+  calculateWordSimilarity,
 } from '@/lib/utils/searchEngine';
 import { supabase } from '@/lib/supabase/client';
+import { checkRateLimit, extractClientIp } from '@/lib/utils/search/rateLimiter';
+import { buildSearchCacheKey, getCachedSearchResults, setCachedSearchResults } from '@/lib/utils/search/searchCache';
+import { logZeroResultSearch } from '@/lib/utils/search/zeroResultLogger';
+import { recordSearchTiming } from '@/lib/utils/search/telemetry';
 
 /**
- * Module 5 - Division 4: Bilingual, Phonetic & Weighted Typeahead Search API Route
+ * Module 5 - Division 9 & 10: Backend API, Performance Telemetry & Security
  *
- * - Task 11: Trigram matching & indexing support
- * - Task 12: Word similarity > 0.3 threshold calculation
- * - Task 13: Levenshtein distance 1-2 character typo tolerance
- * - Task 14: Regex punctuation & symbol sanitizer ("M.M", "W.B.C.S")
- * - Task 15: Bengali normalized synonym dictionary & keywords mapping
- * - Task 16: Transliteration / Romanized Bengali Phonetic Search ("itihas" -> "ইতিহাস")
- * - Task 17: Soundex / Metaphone Author Name Resolution ("maitra" / "mitra" / "মৈত্র")
- * - Task 18: Stopwords Filtering ("এর", "বই", "the", "of")
- * - Task 19: Multi-Word '&' Boolean Full-Text Search & Prefix Scanning
- * - Task 20: Weighted Multi-Column Search Vector (Weights A/B/C)
+ * - Task 41: Ultra-lightweight JSON payload (< 2KB response)
+ * - Task 42: Edge / In-Memory KV Caching (5–20ms response, X-Cache: HIT / MISS)
+ * - Task 43: SQL Injection & XSS input sanitization engine
+ * - Task 44: IP-based rate limiting & bot protection (max 60 req/min per IP)
+ * - Task 45: Zero-result search analytics logger ("Wanted Books")
+ * - Task 47: Stock filter parameter support (inStock=true)
+ * - Task 49: Slow query alert and telemetry monitoring (> 500ms execution warning)
  */
 export async function GET(request: NextRequest) {
   const startTime = performance.now();
+
+  // Task 44: IP-based Rate Limiting (Max 60 req/min per IP)
+  const clientIp = extractClientIp(request.headers);
+  const rateLimit = checkRateLimit(clientIp);
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: 'Too many search requests. Please slow down.',
+        retryAfter: rateLimit.retryAfter,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfter),
+          'X-RateLimit-Limit': String(rateLimit.limit),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(rateLimit.resetTime),
+        },
+      }
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const rawQuery = searchParams.get('q') || '';
   const category = searchParams.get('category') || 'all';
   // Strict quota: maximum 4 books allowed
   const limit = Math.min(parseInt(searchParams.get('limit') || '4', 10), 4);
+  // Task 47: Stock filter parameter support
+  const inStockParam = searchParams.get('in_stock') || searchParams.get('inStock');
+  const inStockOnly = inStockParam === 'true' || inStockParam === '1';
 
-  // Task 14: Sanitize search text
-  const query = rawQuery.trim();
-  const cleanQuery = sanitizeSearchText(query);
+  // Task 43: SQL Injection & XSS Sanitization + Task 14 Text Sanitization
+  const secureQuery = sanitizeQueryForSecurity(rawQuery);
+  const cleanQuery = sanitizeSearchText(secureQuery);
 
   // Task 1: Minimum threshold (>= 2 characters)
   if (cleanQuery.length < 2) {
     const emptyResponse: LiveSearchResponse = {
-      query,
+      query: secureQuery,
       books: [],
       keywords: [],
       categories: [],
@@ -49,12 +78,45 @@ export async function GET(request: NextRequest) {
       totalCount: 0,
       executionTimeMs: Math.round(performance.now() - startTime),
     };
-    return NextResponse.json(emptyResponse);
+    return NextResponse.json(emptyResponse, {
+      headers: {
+        'X-RateLimit-Limit': String(rateLimit.limit),
+        'X-RateLimit-Remaining': String(rateLimit.remaining),
+      },
+    });
+  }
+
+  // Task 42: Check Edge / In-Memory KV Cache (5–20ms response time)
+  const cacheKey = buildSearchCacheKey(cleanQuery, category, limit) + (inStockOnly ? ':instock' : '');
+  const cachedData = getCachedSearchResults(cacheKey);
+
+  if (cachedData) {
+    const cachedExecutionMs = Math.round(performance.now() - startTime);
+    const isSlow = recordSearchTiming(cleanQuery, cachedExecutionMs, category, clientIp);
+    const hitHeaders: Record<string, string> = {
+      'X-Cache': 'HIT',
+      'X-RateLimit-Limit': String(rateLimit.limit),
+      'X-RateLimit-Remaining': String(rateLimit.remaining),
+      'X-Execution-Time': `${cachedExecutionMs}ms`,
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+    };
+    if (isSlow) {
+      hitHeaders['X-Slow-Query'] = 'true';
+    }
+    return NextResponse.json(
+      {
+        ...cachedData,
+        executionTimeMs: cachedExecutionMs,
+      },
+      {
+        headers: hitHeaders,
+      }
+    );
   }
 
   // Attempt Supabase PostgreSQL RPC if configured
   let isDbSuccess = false;
-  let matchedBooks: any[] = [];
+  let matchedBooks: LiveSearchResultItem[] = [];
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (supabaseUrl && !supabaseUrl.includes('placeholder')) {
@@ -84,6 +146,9 @@ export async function GET(request: NextRequest) {
           discountPercent: Number(b.discount_percent),
           inStock: Boolean(b.in_stock),
         }));
+        if (inStockOnly) {
+          matchedBooks = matchedBooks.filter((b) => b.inStock);
+        }
         isDbSuccess = true;
       }
     } catch {
@@ -98,6 +163,10 @@ export async function GET(request: NextRequest) {
     let candidates = BOOKS_CATALOG;
     if (category && category !== 'all') {
       candidates = candidates.filter((b) => b.category === category);
+    }
+    // Task 47: Stock filter candidate constraint
+    if (inStockOnly) {
+      candidates = candidates.filter((b) => b.inStock);
     }
 
     for (const book of candidates) {
@@ -143,7 +212,6 @@ export async function GET(request: NextRequest) {
       if (cleanTitleBn.includes(cleanQuery) || synonyms.some((s) => cleanTitleBn.includes(s))) {
         keywordsSet.add(b.titleBn.split('(')[0].trim());
       }
-      // If transliterated, also add the Bengali title as keyword
       for (const t of transliterations) {
         if (cleanTitleBn.includes(t)) {
           keywordsSet.add(b.titleBn.split('(')[0].trim());
@@ -175,49 +243,111 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Task 13, 16: "Did you mean" suggestion generator for typo recovery & transliteration
+  // Task 13, 16 & 38: Dynamic "Did you mean" typo suggestion engine (Database & Catalog backed)
   let didYouMean: string | null = null;
-  if (matchedBooks.length === 0 && cleanQuery.length >= 3) {
-    if (transliterations.length > 0) {
+  const hasStrongMatch = scoredMatches.some(
+    (m) => m.matchType === 'exact' || m.matchType === 'prefix' || m.matchType === 'multiword'
+  );
+  if ((matchedBooks.length === 0 || !hasStrongMatch) && cleanQuery.length >= 3) {
+    if (transliterations.length > 0 && transliterations[0].toLowerCase() !== cleanQuery) {
       didYouMean = transliterations[0];
     } else {
-      const commonTerms = [
-        { term: 'wbcs', label: 'WBCS 2026 Manual' },
-        { term: 'ugb', label: 'গৌড়বঙ্গ বিশ্ববিদ্যালয় (UGB) সহায়িকা' },
-        { term: 'tet', label: 'WB Primary TET গাইড' },
-        { term: 'police', label: 'ডাব্লুবি পুলিশ কনস্টেবল ও এসআই' },
-        { term: 'railway', label: 'রেলওয়ে (RRB) নন-টেকনিক্যাল গাইড' },
-        { term: 'byomkesh', label: 'ব্যোমকেশ সমগ্র আনন্দ পাবলিশার্স' },
-        { term: 'rabindranath', label: 'রবীন্দ্রনাথ ঠাকুরের সঞ্চয়িতা' },
-        { term: 'maitra', label: 'ড. অমিতাভ মৈত্র' },
-        { term: 'mitra', label: 'ড. অমিতাভ মৈত্র' },
-      ];
+      let bestCandidate: string | null = null;
+      let highestSimilarity = 0;
 
-      for (const item of commonTerms) {
-        if (isWithinLevenshteinMargin(cleanQuery, item.term) || synonyms.includes(item.term)) {
-          didYouMean = item.label;
-          break;
+      for (const b of BOOKS_CATALOG) {
+        const cleanT = sanitizeSearchText(b.title);
+        const cleanTBn = sanitizeSearchText(b.titleBn);
+        const sim = Math.max(
+          calculateWordSimilarity(cleanQuery, cleanT),
+          calculateWordSimilarity(cleanQuery, cleanTBn)
+        );
+
+        if (sim > highestSimilarity && sim >= 0.35) {
+          highestSimilarity = sim;
+          bestCandidate = b.title.split('(')[0].trim();
+        }
+      }
+
+      if (bestCandidate && bestCandidate.toLowerCase() !== cleanQuery) {
+        didYouMean = bestCandidate;
+      } else {
+        const commonTerms = [
+          { term: 'wbcs', label: 'WBCS 2026 Manual' },
+          { term: 'ugb', label: 'গৌড়বঙ্গ বিশ্ববিদ্যালয় (UGB) সহায়িকা' },
+          { term: 'tet', label: 'WB Primary TET গাইড' },
+          { term: 'police', label: 'ডাব্লুবি পুলিশ কনস্টেবল ও এসআই' },
+          { term: 'railway', label: 'রেলওয়ে (RRB) নন-টেকনিক্যাল গাইড' },
+          { term: 'byomkesh', label: 'ব্যোমকেশ সমগ্র আনন্দ পাবলিশার্স' },
+          { term: 'rabindranath', label: 'রবীন্দ্রনাথ ঠাকুরের সঞ্চয়িতা' },
+          { term: 'maitra', label: 'ড. অমিতাভ মৈত্র' },
+          { term: 'mitra', label: 'ড. অমিতাভ মৈত্র' },
+        ];
+
+        for (const item of commonTerms) {
+          if (isWithinLevenshteinMargin(cleanQuery, item.term) || synonyms.includes(item.term)) {
+            didYouMean = item.label;
+            break;
+          }
         }
       }
     }
   }
 
+  // Task 41: Ultra-Lightweight Response Payload (< 2KB)
+  const lightweightBooks = matchedBooks.map((b) => ({
+    id: b.id,
+    bookId: b.slug,
+    slug: b.slug,
+    title: b.title,
+    titleBn: b.titleBn,
+    author: b.author,
+    authorBn: b.authorBn,
+    publisher: b.publisher,
+    category: b.category,
+    categoryName: b.categoryName,
+    price: b.price,
+    mrp: b.mrp,
+    discount: b.discount,
+    discountPercent: b.discountPercent,
+    inStock: b.inStock,
+    coverImage: b.coverImage,
+  }));
+
+  // Task 45: Zero-Result Search Analytics Logger ("Wanted Books")
+  if (lightweightBooks.length === 0 && cleanQuery.length >= 3) {
+    logZeroResultSearch(cleanQuery, category, clientIp).catch(() => {});
+  }
+
   const executionTimeMs = Math.round(performance.now() - startTime);
+  const isSlowQuery = recordSearchTiming(cleanQuery, executionTimeMs, category, clientIp);
 
   // Response strictly adheres to the 10 item quota: 4 books + 4 keywords + 2 categories
   const response: LiveSearchResponse = {
-    query,
-    books: matchedBooks,
+    query: secureQuery,
+    books: lightweightBooks,
     keywords: Array.from(keywordsSet).slice(0, 4),
     categories: matchedCategories.slice(0, 2),
     didYouMean,
-    totalCount: isDbSuccess ? matchedBooks.length : scoredMatches.length,
+    totalCount: isDbSuccess ? lightweightBooks.length : scoredMatches.length,
     executionTimeMs,
   };
 
+  // Task 42: Cache search result in Edge/Memory KV Cache
+  setCachedSearchResults(cacheKey, response);
+
+  const missHeaders: Record<string, string> = {
+    'X-Cache': 'MISS',
+    'X-RateLimit-Limit': String(rateLimit.limit),
+    'X-RateLimit-Remaining': String(rateLimit.remaining),
+    'X-Execution-Time': `${executionTimeMs}ms`,
+    'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+  };
+  if (isSlowQuery) {
+    missHeaders['X-Slow-Query'] = 'true';
+  }
+
   return NextResponse.json(response, {
-    headers: {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
-    },
+    headers: missHeaders,
   });
 }

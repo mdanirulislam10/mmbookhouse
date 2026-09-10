@@ -65,8 +65,8 @@ interface AmazonSortDropdownProps {
 }
 
 /**
- * Task 24: 6-Option Amazon Sorting Dropdown (৬-অপশন অ্যামাজন সর্টিং ড্রপডাউন)
- * Accessible, customizable dropdown menu for instant sorting change.
+ * Task 24: 6-Option Amazon Sorting Dropdown with full ARIA keyboard navigation
+ * Supports ArrowUp, ArrowDown, Enter, Space, and Escape keyboard accessibility.
  */
 export const AmazonSortDropdown: React.FC<AmazonSortDropdownProps> = ({
   sortBy,
@@ -75,7 +75,9 @@ export const AmazonSortDropdown: React.FC<AmazonSortDropdownProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const currentItem = SORT_ITEMS.find((item) => item.id === sortBy) || SORT_ITEMS[0];
 
@@ -90,26 +92,68 @@ export const AmazonSortDropdown: React.FC<AmazonSortDropdownProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close on ESC key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsOpen(true);
+        const currentIndex = SORT_ITEMS.findIndex((it) => it.id === sortBy);
+        setFocusedIndex(currentIndex >= 0 ? currentIndex : 0);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex((prev) => (prev + 1) % SORT_ITEMS.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex((prev) => (prev - 1 + SORT_ITEMS.length) % SORT_ITEMS.length);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (focusedIndex >= 0 && focusedIndex < SORT_ITEMS.length) {
+        onSortChange(SORT_ITEMS[focusedIndex].id);
         setIsOpen(false);
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setFocusedIndex(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setFocusedIndex(SORT_ITEMS.length - 1);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && focusedIndex >= 0 && itemRefs.current[focusedIndex]) {
+      itemRefs.current[focusedIndex]?.focus();
+    }
+  }, [isOpen, focusedIndex]);
 
   return (
-    <div ref={dropdownRef} className={`relative inline-block text-left ${className}`}>
+    <div
+      ref={dropdownRef}
+      onKeyDown={handleKeyDown}
+      className={`relative inline-block text-left ${className}`}
+    >
       {/* Trigger Button */}
       <button
         type="button"
         id="amazon-sort-trigger"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const nextState = !isOpen;
+          setIsOpen(nextState);
+          if (nextState) {
+            const currentIndex = SORT_ITEMS.findIndex((it) => it.id === sortBy);
+            setFocusedIndex(currentIndex >= 0 ? currentIndex : 0);
+          }
+        }}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-50/90 hover:bg-white text-gray-800 border border-gray-300 rounded-lg shadow-2xs hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-500 transition-all cursor-pointer select-none"
       >
         <ArrowUpDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
@@ -129,27 +173,34 @@ export const AmazonSortDropdown: React.FC<AmazonSortDropdownProps> = ({
         <div
           role="listbox"
           aria-labelledby="amazon-sort-trigger"
+          tabIndex={-1}
           className="absolute right-0 mt-1.5 w-56 sm:w-60 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50 animate-in fade-in-80 zoom-in-95 duration-150 focus:outline-none"
         >
           <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-1">
             {isBengali ? 'সাজানোর বিকল্প' : 'Sort Options'}
           </div>
 
-          {SORT_ITEMS.map((item) => {
+          {SORT_ITEMS.map((item, index) => {
             const isSelected = item.id === sortBy;
+            const isFocused = index === focusedIndex;
+
             return (
               <button
                 key={item.id}
+                ref={(el) => { itemRefs.current[index] = el; }}
                 type="button"
                 role="option"
                 aria-selected={isSelected}
+                tabIndex={isFocused ? 0 : -1}
                 onClick={() => {
                   onSortChange(item.id);
                   setIsOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer select-none ${
+                className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer select-none focus:outline-none ${
                   isSelected
                     ? 'bg-amber-50/90 text-amber-950 font-bold'
+                    : isFocused
+                    ? 'bg-gray-100 text-gray-950'
                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-950'
                 }`}
               >

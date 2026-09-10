@@ -7,8 +7,9 @@ import {
   LiveSearchCategoryMatch,
   LiveSearchResponse,
   SearchHistoryItem,
+  POPULAR_MALDA_SEARCHES,
 } from '@/types/search';
-import { POPULAR_MALDA_SEARCHES, BOOKS_CATALOG } from '@/lib/data/booksCatalog';
+import { BOOKS_CATALOG } from '@/lib/data/booksCatalog';
 
 export const MIN_SEARCH_CHARS = 2;
 export const SEARCH_HISTORY_STORAGE_KEY = 'mm_book_search_history_v1';
@@ -86,6 +87,12 @@ interface UseLiveSearchOptions {
  * - Task 36: Personalization engine based on past category affinity
  * - Task 40: Incognito / Private browsing mode safety with in-memory storage fallback
  */
+import { scoreBookMatch, ScoredMatch } from '@/lib/utils/search/scoring';
+import { SEARCH_CATEGORIES } from '@/types/search';
+import { initOfflineSearchCache, searchOfflineBooks } from '@/lib/utils/search/offlineSearch';
+
+export const SEARCH_HISTORY_EVENT = 'mm_search_history_updated';
+
 export function useLiveSearch(options: UseLiveSearchOptions = {}) {
   const {
     category = 'all',
@@ -93,18 +100,42 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
     minChars = MIN_SEARCH_CHARS,
   } = options;
 
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(category);
+
+  // Sync category prop if updated from outside
+  useEffect(() => {
+    if (category) {
+      setSelectedCategory(category);
+    }
+  }, [category]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [books, setBooks] = useState<LiveSearchResultItem[]>([]);
   const [keywords, setKeywords] = useState<string[]>([]);
   const [categories, setCategories] = useState<LiveSearchCategoryMatch[]>([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
   const [executionTimeMs, setExecutionTimeMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // Local storage recent search history
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+
+  // Task 3: In-flight AbortController reference
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Task 3: Instant cancellation on user keystroke (cancels prior in-flight fetch immediately)
+  const setQuery = useCallback((newQuery: string) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setQueryState(newQuery);
+    if (newQuery.trim().length < minChars) {
+      setIsLoading(false);
+    }
+  }, [minChars]);
 
   // Task 36: User past category affinity & personalized recommendation engine
   const preferredCategory = useMemo(() => {
@@ -141,25 +172,80 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
   // Task 2: Debounced query (delays 300ms)
   const debouncedQuery = useDebounce(query.trim(), debounceDelay);
 
-  // Task 3: In-flight AbortController reference
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Task 40: Load search history safely on mount (with incognito fallback)
+  // Task 31 & 40: Load search history safely on mount & listen to cross-component sync events
   useEffect(() => {
-    try {
-      const stored = safeGetItem(SEARCH_HISTORY_STORAGE_KEY);
-      if (stored) {
-        setSearchHistory(JSON.parse(stored));
+    const loadHistory = () => {
+      try {
+        const stored = safeGetItem(SEARCH_HISTORY_STORAGE_KEY);
+        if (stored) {
+          setSearchHistory(JSON.parse(stored));
+        }
+      } catch {
+        // Handled safely
       }
-    } catch {
-      // Handled safely
+    };
+
+    loadHistory();
+
+    // Task 48: Pre-warm IndexedDB offline cache for top 200 catalog books
+    initOfflineSearchCache(BOOKS_CATALOG.slice(0, 200)).catch(() => {});
+
+    const handleCustomSync = (e: Event) => {
+      const customEvent = e as CustomEvent<SearchHistoryItem[]>;
+      if (customEvent.detail) {
+        setSearchHistory(customEvent.detail);
+      } else {
+        loadHistory();
+      }
+    };
+
+    const handleStorageSync = (e: StorageEvent) => {
+      if (e.key === SEARCH_HISTORY_STORAGE_KEY) {
+        loadHistory();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(SEARCH_HISTORY_EVENT, handleCustomSync);
+      window.addEventListener('storage', handleStorageSync);
     }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(SEARCH_HISTORY_EVENT, handleCustomSync);
+        window.removeEventListener('storage', handleStorageSync);
+      }
+    };
   }, []);
 
-  // Save query to search history (Task 31 & Task 40 safe storage)
+  // Save query to search history (Task 31, 36 & 40 safe storage with category affinity resolution)
   const saveSearchTerm = useCallback((term: string, cat?: string) => {
     const trimmed = term.trim();
     if (!trimmed || trimmed.length < 2) return;
+
+    // Resolve specific category affinity if cat is missing or 'all' (Task 36)
+    let resolvedCat = cat && cat !== 'all' ? cat : undefined;
+    if (!resolvedCat) {
+      const lower = trimmed.toLowerCase();
+      // Try matching category
+      for (const c of SEARCH_CATEGORIES) {
+        if (c.id === 'all') continue;
+        if (lower.includes(c.id) || lower.includes(c.name.toLowerCase()) || lower.includes(c.nameBn.toLowerCase())) {
+          resolvedCat = c.id;
+          break;
+        }
+      }
+      // Try matching book catalog category
+      if (!resolvedCat) {
+        const book = BOOKS_CATALOG.find((b) =>
+          b.title.toLowerCase().includes(lower) ||
+          b.titleBn.toLowerCase().includes(lower)
+        );
+        if (book) {
+          resolvedCat = book.category;
+        }
+      }
+    }
 
     setSearchHistory((prev) => {
       const filtered = prev.filter((item) => item.query.toLowerCase() !== trimmed.toLowerCase());
@@ -167,13 +253,19 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
         {
           id: `hist-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
           query: trimmed,
-          category: cat,
+          category: resolvedCat,
           timestamp: Date.now(),
         },
         ...filtered,
       ].slice(0, MAX_HISTORY_ITEMS);
 
       safeSetItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(updated));
+
+      // Broadcast history update to other header instances (Desktop & Mobile Header sync)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(SEARCH_HISTORY_EVENT, { detail: updated }));
+      }
+
       return updated;
     });
   }, []);
@@ -183,6 +275,9 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
     setSearchHistory((prev) => {
       const updated = prev.filter((item) => item.id !== id);
       safeSetItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(updated));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(SEARCH_HISTORY_EVENT, { detail: updated }));
+      }
       return updated;
     });
   }, []);
@@ -191,6 +286,9 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
   const clearAllHistory = useCallback(() => {
     setSearchHistory([]);
     safeRemoveItem(SEARCH_HISTORY_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(SEARCH_HISTORY_EVENT, { detail: [] }));
+    }
   }, []);
 
   // Task 4: Instant Clear & State Reset
@@ -202,11 +300,12 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
     }
 
     // 2. Reset query and results state
-    setQuery('');
+    setQueryState('');
     setBooks([]);
     setKeywords([]);
     setCategories([]);
     setDidYouMean(null);
+    setTotalCount(0);
     setIsLoading(false);
     setError(null);
     setExecutionTimeMs(0);
@@ -244,6 +343,28 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
     setError(null);
 
     const fetchLiveResults = async () => {
+      // Task 48: Immediate offline response if browser is offline
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        try {
+          const offlineData = await searchOfflineBooks(trimmed, selectedCategory, 4);
+          if (!controller.signal.aborted) {
+            setBooks(offlineData.books || []);
+            setKeywords(offlineData.keywords || []);
+            setCategories(offlineData.categories || []);
+            setDidYouMean(offlineData.didYouMean || null);
+            setTotalCount(offlineData.totalCount || 0);
+            setExecutionTimeMs(offlineData.executionTimeMs || 5);
+            setIsLoading(false);
+          }
+        } catch {
+          if (!controller.signal.aborted) {
+            setError('Offline search failed');
+            setIsLoading(false);
+          }
+        }
+        return;
+      }
+
       try {
         const url = `/api/search?q=${encodeURIComponent(trimmed)}&category=${encodeURIComponent(selectedCategory)}&limit=4`;
         const res = await fetch(url, {
@@ -265,15 +386,34 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
           setKeywords(data.keywords || []);
           setCategories(data.categories || []);
           setDidYouMean(data.didYouMean || null);
+          setTotalCount(data.totalCount ?? (data.books ? data.books.length : 0));
           setExecutionTimeMs(data.executionTimeMs || 0);
           setIsLoading(false);
         }
       } catch (err: unknown) {
-        // Ignore AbortError gracefully — user typed a new character
+        // Ignore AbortError gracefully — user typed a new character or cancelled
         if (err instanceof Error && err.name === 'AbortError') {
+          setIsLoading(false);
           return;
         }
         if (!controller.signal.aborted) {
+          // Task 48: PWA Offline Search Fallback using IndexedDB cache
+          try {
+            const offlineData = await searchOfflineBooks(trimmed, selectedCategory, 4);
+            if (!controller.signal.aborted) {
+              setBooks(offlineData.books || []);
+              setKeywords(offlineData.keywords || []);
+              setCategories(offlineData.categories || []);
+              setDidYouMean(offlineData.didYouMean || null);
+              setTotalCount(offlineData.totalCount || 0);
+              setExecutionTimeMs(offlineData.executionTimeMs || 15);
+              setIsLoading(false);
+              return;
+            }
+          } catch {
+            // Fall through to error
+          }
+
           console.error('[LiveSearch] Error:', err);
           setError('Failed to fetch search results');
           setIsLoading(false);
@@ -299,6 +439,7 @@ export function useLiveSearch(options: UseLiveSearchOptions = {}) {
     keywords,
     categories,
     didYouMean,
+    totalCount,
     executionTimeMs,
     error,
     searchHistory,

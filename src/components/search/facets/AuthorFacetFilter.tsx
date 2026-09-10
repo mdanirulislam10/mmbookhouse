@@ -37,15 +37,10 @@ export const AuthorFacetFilter: React.FC<AuthorFacetFilterProps> = ({
     }
 
     // Zero-Match Demotion (Task 22):
-    // 1. Selected items stay at top
-    // 2. Non-selected items with count > 0 sorted by count desc
-    // 3. Items with count === 0 demoted to bottom
+    // 1. Items with count > 0 sorted by count desc
+    // 2. Items with count === 0 demoted to bottom
+    // Stable order is preserved so checking an author does not displace items under the user's cursor
     return [...list].sort((a, b) => {
-      const aSelected = selectedAuthors.includes(a.id);
-      const bSelected = selectedAuthors.includes(b.id);
-      if (aSelected && !bSelected) return -1;
-      if (!aSelected && bSelected) return 1;
-
       const aHasCount = a.count > 0;
       const bHasCount = b.count > 0;
       if (aHasCount && !bHasCount) return -1;
@@ -53,7 +48,7 @@ export const AuthorFacetFilter: React.FC<AuthorFacetFilterProps> = ({
 
       return b.count - a.count;
     });
-  }, [options, searchQuery, selectedAuthors]);
+  }, [options, searchQuery]);
 
   // Determine visible authors based on expansion or search query
   const visibleOptions = useMemo(() => {

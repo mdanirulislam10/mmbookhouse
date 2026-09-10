@@ -140,18 +140,18 @@ export const PublisherFacetFilter: React.FC<PublisherFacetFilterProps> = ({
         ) : (
           visibleOptions.map((opt) => {
             const isChecked = selectedPublishers.includes(opt.id);
-            const disabled = opt.disabled || opt.count === 0;
+            const disabled = opt.disabled || (opt.count === 0 && !isChecked);
             const region = getPublisherRegion(opt.labelBn || opt.label);
 
             return (
               <label
                 key={opt.id}
-                className={`flex items-start gap-2 py-1 px-1.5 rounded text-xs transition-colors cursor-pointer ${
+                className={`flex items-start gap-2 py-1 px-1.5 rounded text-xs transition-colors select-none ${
                   disabled
                     ? 'opacity-35 cursor-not-allowed'
                     : isChecked
-                    ? 'bg-amber-50/90 text-amber-950 font-semibold'
-                    : 'hover:bg-gray-50 text-gray-700 hover:text-gray-950'
+                    ? 'bg-amber-50/90 text-amber-950 font-semibold cursor-pointer'
+                    : 'hover:bg-gray-50 text-gray-700 hover:text-gray-950 cursor-pointer'
                 }`}
               >
                 <div

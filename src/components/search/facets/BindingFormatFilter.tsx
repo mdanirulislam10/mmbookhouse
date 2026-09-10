@@ -12,13 +12,16 @@ interface BindingFormatFilterProps {
   isBengali?: boolean;
 }
 
+/**
+ * Task 14: Binding Format Filter with full ARIA keyboard accessibility
+ * Supports Paperback, Hardcover, and Combo Bundle with zero-trap protection.
+ */
 export const BindingFormatFilter: React.FC<BindingFormatFilterProps> = ({
   options,
   selectedFormats,
   onToggleFormat,
   isBengali = true,
 }) => {
-  // Format configuration metadata
   const formatMetadata: Record<
     string,
     {
@@ -45,7 +48,7 @@ export const BindingFormatFilter: React.FC<BindingFormatFilterProps> = ({
   };
 
   return (
-    <div className="space-y-1.5 select-none">
+    <div className="space-y-1.5 select-none" role="group" aria-label={isBengali ? 'বাঁধাইয়ের ধরন ফিল্টার' : 'Binding format filter'}>
       {options.map((option) => {
         const isChecked = selectedFormats.includes(option.id);
         const meta = formatMetadata[option.id] || {
@@ -54,18 +57,27 @@ export const BindingFormatFilter: React.FC<BindingFormatFilterProps> = ({
           subtitleEn: 'Standard format',
         };
         const IconComponent = meta.icon;
-        const disabled = option.disabled || option.count === 0;
+        const disabled = option.disabled || (option.count === 0 && !isChecked);
 
         return (
           <div
             key={option.id}
+            role="checkbox"
+            aria-checked={isChecked}
+            tabIndex={disabled ? -1 : 0}
             onClick={() => !disabled && onToggleFormat(option.id)}
-            className={`flex items-start gap-2.5 p-2 rounded-lg border transition-all cursor-pointer ${
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                if (!disabled) onToggleFormat(option.id);
+              }
+            }}
+            className={`flex items-start gap-2.5 p-2 rounded-lg border transition-all select-none focus:outline-none focus:ring-2 focus:ring-amber-500 ${
               disabled
                 ? 'opacity-35 cursor-not-allowed bg-gray-50 border-gray-100'
                 : isChecked
-                ? 'bg-amber-50/80 border-amber-500 shadow-2xs text-amber-950'
-                : 'border-gray-200/80 hover:border-amber-300 hover:bg-gray-50/80 text-gray-700'
+                ? 'bg-amber-50/80 border-amber-500 shadow-2xs text-amber-950 cursor-pointer'
+                : 'border-gray-200/80 hover:border-amber-300 hover:bg-gray-50/80 text-gray-700 cursor-pointer'
             }`}
           >
             {/* Format Icon with background */}
@@ -96,7 +108,7 @@ export const BindingFormatFilter: React.FC<BindingFormatFilterProps> = ({
               </p>
             </div>
 
-            {/* Selection Checkbox */}
+            {/* Selection Checkbox indicator */}
             <div
               className={`w-3.5 h-3.5 rounded mt-0.5 shrink-0 flex items-center justify-center border transition-all ${
                 isChecked

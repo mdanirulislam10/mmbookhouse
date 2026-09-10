@@ -4,29 +4,15 @@ import React, { Suspense, useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Search,
-  BookOpen,
-  Star,
-  ShoppingCart,
-  Heart,
-  Check,
-  Zap,
-  ArrowUpDown,
-  Home,
-  ChevronRight,
-  Sparkles,
-  RotateCcw,
-  SlidersHorizontal,
   Package,
   PhoneCall,
+  RotateCcw,
+  Sparkles,
+  HelpCircle,
   X,
-  BadgePercent,
-  CheckCircle2,
 } from 'lucide-react';
-import { useCartStore } from '@/hooks/useCartStore';
-import { useWishlistStore, useWishlistActions } from '@/hooks/useWishlistStore';
 import { useLanguage } from '@/hooks/useLanguage';
-import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
+import { toBengaliNumerals } from '@/lib/utils/currency';
 import {
   BookProduct,
   FilterState,
@@ -37,608 +23,22 @@ import {
 } from '@/types/catalog-filter';
 import { SearchResultsLayout } from '@/components/search/SearchResultsLayout';
 import { DesktopFacetSidebar } from '@/components/search/DesktopFacetSidebar';
-import { ViewModeToggle } from '@/components/search/ViewModeToggle';
 import { MobileSortFilterBar } from '@/components/search/MobileSortFilterBar';
 import { MobileDualPaneDrawer } from '@/components/search/MobileDualPaneDrawer';
 import { ResultSummaryHeader } from '@/components/search/ResultSummaryHeader';
 import { ActiveFilterChips } from '@/components/search/ActiveFilterChips';
+import { ProductCard } from '@/components/search/ProductCard';
+import { Pagination } from '@/components/search/Pagination';
+import { ProductGridSkeleton } from '@/components/search/ProductGridSkeleton';
 import { useScrollToResults } from '@/hooks/useScrollToResults';
 import { getActiveDealForBook } from '@/lib/data/flashDeals';
-import { AmazonDealBadge } from '@/components/deals/AmazonDealBadge';
-
-// Comprehensive realistic catalog for M.M Book House Malda
-const SEARCH_CATALOG: BookProduct[] = [
-  {
-    id: 'book-1',
-    bookId: 'book-wbcs-manual-2026',
-    title: 'WBCS Preliminary & Main Exam Manual (2026 Edition)',
-    titleBn: 'WBCS প্রিলিমিনারি ও মেইনস কমপ্লিট ম্যানুয়াল (২০২৬ সংস্করণ)',
-    author: 'ড. অশোক কুমার ঘোষ ও নিতিন সিংহানিয়া বিশেষজ্ঞ টিম',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'wbcs-special',
-    categoryName: 'WBCS ও সিভিল সার্ভিস',
-    subCategory: 'wbcs-manual',
-    subCategoryName: 'প্রিলিমিনারি ও মেইনস ম্যানুয়াল',
-    price: 595,
-    mrp: 850,
-    discount: '30%',
-    badge: 'BESTSELLER',
-    rating: 4.9,
-    reviewsCount: 342,
-    inStock: true,
-    edition: '2026 Annual Edition',
-    createdAt: '2026-08-15',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bilingual',
-    keywords: ['wbcs', 'manual', 'civil service', 'ঘোষ', 'ছায়া', 'প্রিলিমিনারি'],
-  },
-  {
-    id: 'book-2',
-    bookId: 'book-wbcs-scanner-2026',
-    title: 'WBCS Scanner Prelims & Mains Solved Papers 2026',
-    titleBn: 'WBCS স্ক্যানার প্রিলিমিনারি ও মেইনস সলভড পেপারস (২০২৬)',
-    author: 'এম.এম রিসার্চ প্যানেল',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'wbcs-special',
-    categoryName: 'WBCS ও সিভিল সার্ভিস',
-    subCategory: 'wbcs-scanner',
-    subCategoryName: 'সলভড স্ক্যানার ও প্রশ্নব্যাংক',
-    price: 455,
-    mrp: 650,
-    discount: '30%',
-    badge: 'TOP CHOICE',
-    rating: 4.8,
-    reviewsCount: 215,
-    inStock: true,
-    edition: '2026 Edition',
-    createdAt: '2026-08-10',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bilingual',
-    keywords: ['wbcs', 'scanner', 'solved', 'ছায়া', 'প্রশ্নোত্তর'],
-  },
-  {
-    id: 'book-3',
-    bookId: 'book-wbcs-current-affairs-2026',
-    title: 'WBCS Prelims Current Affairs & West Bengal Yearbook 2026',
-    titleBn: '২০২৬ WBCS প্রিলিমস কারেন্ট অ্যাফেয়ার্স ও পশ্চিমবঙ্গ ইয়ারবুক',
-    author: 'এম.এম রিসার্চ টিম',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'wbcs-special',
-    categoryName: 'WBCS ও সিভিল সার্ভিস',
-    subCategory: 'wbcs-current-affairs',
-    subCategoryName: 'কারেন্ট অ্যাফেয়ার্স ও ইয়ারবুক',
-    price: 240,
-    mrp: 320,
-    discount: '25%',
-    rating: 4.7,
-    reviewsCount: 180,
-    inStock: true,
-    edition: '2026 First Edition',
-    createdAt: '2026-08-01',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['current affairs', 'yearbook', 'পশ্চিমবঙ্গ', 'ইয়ারবুক', 'wbcs'],
-  },
-  {
-    id: 'book-4',
-    bookId: 'book-wbcs-history-compendium',
-    title: 'Bharat O Paschimbanger Itihas (WBCS Special Reference)',
-    titleBn: 'ভারত ও পশ্চিমবঙ্গের ইতিহাস (WBCS স্পেশাল রেফারেন্স)',
-    author: 'জীবন মুখোপাধ্যায়',
-    publisher: 'মৌলিক লাইব্রেরী',
-    category: 'wbcs-special',
-    categoryName: 'WBCS ও সিভিল সার্ভিস',
-    subCategory: 'wbcs-manual',
-    subCategoryName: 'হিস্ট্রি ও স্পেশাল রেফারেন্স',
-    price: 360,
-    mrp: 450,
-    discount: '20%',
-    rating: 4.8,
-    reviewsCount: 410,
-    inStock: true,
-    edition: 'Revised 2025-26',
-    createdAt: '2026-05-20',
-    binding: 'hardcover',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['ইতিহাস', 'জীবন মুখোপাধ্যায়', 'history', 'wbcs'],
-  },
-  {
-    id: 'book-5',
-    bookId: 'book-ugb-history-sem4',
-    title: 'Gour Banga University History Honours Sem-4 (Modern India)',
-    titleBn: 'গৌড়বঙ্গ বিশ্ববিদ্যালয় ইতিহাস অনার্স ৪র্থ সেমিস্টার (আধুনিক ভারত)',
-    author: 'ড. অশোক কুমার ঘোষ',
-    publisher: 'দে’জ পাবলিশিং',
-    category: 'college-university',
-    categoryName: 'কলেজ ও বিশ্ববিদ্যালয়',
-    subCategory: 'ugb-sem-3-4',
-    subCategoryName: 'UGB সেমিস্টার ৩ ও ৪ (২য় বর্ষ)',
-    price: 315,
-    mrp: 450,
-    discount: '30%',
-    badge: 'UGB SYLLABUS',
-    rating: 4.6,
-    reviewsCount: 124,
-    inStock: true,
-    edition: '2025-26 CBCS',
-    createdAt: '2026-06-15',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['ugb', 'history', 'sem 4', 'গৌড়বঙ্গ', 'অনার্স'],
-  },
-  {
-    id: 'book-6',
-    bookId: 'book-ugb-polscience-sem2',
-    title: 'UGB Political Science Honours Sem-2 Core Course Guide',
-    titleBn: 'UGB রাষ্ট্রবিজ্ঞান অনার্স ২য় সেমিস্টার সিলেবাস সহায়িকা',
-    author: 'অমল কুমার মুখোপাধ্যায়',
-    publisher: 'পশ্চিমবঙ্গ রাজ্য পুস্তক পর্ষদ',
-    category: 'college-university',
-    categoryName: 'কলেজ ও বিশ্ববিদ্যালয়',
-    subCategory: 'ugb-sem-1-2',
-    subCategoryName: 'UGB সেমিস্টার ১ ও ২ (১ম বর্ষ)',
-    price: 260,
-    mrp: 325,
-    discount: '20%',
-    rating: 4.5,
-    reviewsCount: 88,
-    inStock: true,
-    edition: '2025-26',
-    createdAt: '2025-11-10',
-    binding: 'paperback',
-    condition: 'used',
-    language: 'bengali',
-    keywords: ['ugb', 'pol science', 'রাষ্ট্রবিজ্ঞান', 'সেমিস্টার ২'],
-  },
-  {
-    id: 'book-7',
-    bookId: 'book-ugb-bengali-hons-sem1',
-    title: 'Bangla Sahityer Itihas (Prachin O Madhyajug) UGB Sem-1',
-    titleBn: 'বাংলা সাহিত্যের ইতিবৃত্ত (প্রাচীন ও মধ্যযুগ) UGB ১ম সেমিস্টার',
-    author: 'ড. ক্ষেত্র গুপ্ত',
-    publisher: 'দে’জ পাবলিশিং',
-    category: 'college-university',
-    categoryName: 'কলেজ ও বিশ্ববিদ্যালয়',
-    subCategory: 'ugb-sem-1-2',
-    subCategoryName: 'UGB সেমিস্টার ১ ও ২ (১ম বর্ষ)',
-    price: 340,
-    mrp: 400,
-    discount: '15%',
-    rating: 4.7,
-    reviewsCount: 140,
-    inStock: true,
-    edition: '2025 Edition',
-    createdAt: '2026-01-20',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['বাংলা সাহিত্য', 'ক্ষেত্র গুপ্ত', 'ugb', 'sem 1'],
-  },
-  {
-    id: 'book-8',
-    bookId: 'book-primary-tet-challenger',
-    title: 'WB Primary TET Challenger 2026 (Child Dev, Bengali, Eng, Math, EVS)',
-    titleBn: 'প্রাথমিক টেট চ্যালেঞ্জার ২০২৬ (পূর্ণাঙ্গ ৫টি বিষয় ও ২০ সেট প্রশ্ন)',
-    author: 'শান্তনু পাত্র ও বিশেষজ্ঞ মণ্ডল',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'primary-tet-slst',
-    categoryName: 'টেট ও স্কুল সার্ভিস',
-    subCategory: 'primary-tet',
-    subCategoryName: 'প্রাথমিক টেট (Primary TET)',
-    price: 385,
-    mrp: 550,
-    discount: '30%',
-    badge: 'POPULAR',
-    rating: 4.9,
-    reviewsCount: 680,
-    inStock: true,
-    edition: '2026 New Syllabus',
-    createdAt: '2026-07-25',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['tet', 'primary', 'টেট', 'ছায়া', 'চ্যালেঞ্জার'],
-  },
-  {
-    id: 'book-9',
-    bookId: 'book-upper-primary-tet-social',
-    title: 'Upper Primary TET Social Studies Guide & Practice Tests',
-    titleBn: 'উচ্চ প্রাথমিক টেট সমাজবিদ্যা সহায়িকা ও প্র্যাকটিস টেস্ট',
-    author: 'ড. নিমাইচাঁদ সাহা',
-    publisher: 'মিত্র ও ঘোষ পাবলিশার্স',
-    category: 'primary-tet-slst',
-    categoryName: 'টেট ও স্কুল সার্ভিস',
-    subCategory: 'upper-primary',
-    subCategoryName: 'উচ্চ প্রাথমিক টেট (Upper Primary)',
-    price: 320,
-    mrp: 400,
-    discount: '20%',
-    rating: 4.6,
-    reviewsCount: 154,
-    inStock: true,
-    edition: '2025-26',
-    createdAt: '2026-03-12',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['upper primary', 'সমাজবিদ্যা', 'social studies', 'tet'],
-  },
-  {
-    id: 'book-10',
-    bookId: 'book-slst-bangla-complete',
-    title: 'School Service Commission SLST Bengali PG & Hons Complete Guide',
-    titleBn: 'স্কুল সার্ভিস কমিশন SLST বাংলা অনার্স ও পিজি সহায়িকা',
-    author: 'প্রফেসর অসীম কুমার সরকার',
-    publisher: 'দে’জ পাবলিশিং',
-    category: 'primary-tet-slst',
-    categoryName: 'টেট ও স্কুল সার্ভিস',
-    subCategory: 'slst-ssc',
-    subCategoryName: 'স্কুল সার্ভিস কমিশন (SLST)',
-    price: 490,
-    mrp: 700,
-    discount: '30%',
-    rating: 4.8,
-    reviewsCount: 220,
-    inStock: true,
-    edition: 'Updated 2026',
-    createdAt: '2026-04-18',
-    binding: 'hardcover',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['slst', 'ssc', 'স্কুল সার্ভিস', 'বাংলা অনার্স'],
-  },
-  {
-    id: 'book-11',
-    bookId: 'book-wb-police-constable-2026',
-    title: 'West Bengal Police Constable & Lady Constable Guide 2026',
-    titleBn: 'পশ্চিমবঙ্গ পুলিশ কনস্টেবল ও লেডি কনস্টেবল প্র্যাকটিস সহায়িকা ২০২৬',
-    author: 'অভিজিৎ মুখোপাধ্যায়',
-    publisher: 'পারুল প্রকাশনী',
-    category: 'competitive-exams',
-    categoryName: 'সরকারি চাকরির পরীক্ষা',
-    subCategory: 'wb-police',
-    subCategoryName: 'পশ্চিমবঙ্গ পুলিশ ও কনস্টেবল',
-    price: 270,
-    mrp: 360,
-    discount: '25%',
-    badge: 'MALDA TOP SELLER',
-    rating: 4.7,
-    reviewsCount: 450,
-    inStock: true,
-    edition: '2026 Special Edition',
-    createdAt: '2026-07-10',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['police', 'wbp', 'কনস্টেবল', 'লেডি কনস্টেবল', 'পারুল'],
-  },
-  {
-    id: 'book-12',
-    bookId: 'book-railway-alp-technician',
-    title: 'RRB Railway ALP & Technician Stage-1 & 2 CBT Guide 2026',
-    titleBn: 'রেলওয়ে ALP ও টেকনিশিয়ান সম্পূর্ণ প্রস্তুতি সহায়িকা (বাংলা ও ইংরেজি)',
-    author: 'আর.কে. গুপ্ত টেকনিক্যাল প্যানেল',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'competitive-exams',
-    categoryName: 'সরকারি চাকরির পরীক্ষা',
-    subCategory: 'railway-rrb',
-    subCategoryName: 'রেলওয়ে রিক্রুটমেন্ট (RRB)',
-    price: 420,
-    mrp: 600,
-    discount: '30%',
-    rating: 4.6,
-    reviewsCount: 310,
-    inStock: true,
-    edition: '2026 CBT Edition',
-    createdAt: '2026-06-05',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bilingual',
-    keywords: ['railway', 'rrb', 'alp', 'রেলওয়ে', 'টেকনিশিয়ান'],
-  },
-  {
-    id: 'book-13',
-    bookId: 'book-ssc-chsl-bengali-guide',
-    title: 'SSC CHSL 10+2 Tier-1 Complete Guide in Bengali',
-    titleBn: 'এসএসসি সিএইচএসএল (১০+২) টায়ার-১ বাংলা সংস্করণ সহায়িকা',
-    author: 'এম.এম স্টাফ সিলেকশন টিম',
-    publisher: 'পারুল প্রকাশনী',
-    category: 'competitive-exams',
-    categoryName: 'সরকারি চাকরির পরীক্ষা',
-    subCategory: 'ssc-central',
-    subCategoryName: 'স্টাফ সিলেকশন কমিশন (SSC)',
-    price: 345,
-    mrp: 460,
-    discount: '25%',
-    rating: 4.5,
-    reviewsCount: 195,
-    inStock: true,
-    edition: '2025-26',
-    createdAt: '2025-10-15',
-    binding: 'paperback',
-    condition: 'used',
-    language: 'bilingual',
-    keywords: ['ssc', 'chsl', 'সিএইচএসএল', 'স্টাফ সিলেকশন'],
-  },
-  {
-    id: 'book-14',
-    bookId: 'book-feluda-samagra-vol1',
-    title: 'Feluda Samagra (Volume 1) by Satyajit Ray',
-    titleBn: 'ফেলুদা সমগ্র (১ম খণ্ড - অখণ্ড সংস্করণ) - সত্যজিৎ রায়',
-    author: 'সত্যজিৎ রায়',
-    publisher: 'আনন্দ পাবলিশার্স',
-    category: 'bengali-literature',
-    categoryName: 'বাংলা সাহিত্য ও উপন্যাস',
-    subCategory: 'detective-feluda',
-    subCategoryName: 'ফেলুদা সমগ্র - সত্যজিৎ রায়',
-    price: 520,
-    mrp: 650,
-    discount: '20%',
-    badge: 'CLASSIC',
-    rating: 4.9,
-    reviewsCount: 1120,
-    inStock: true,
-    edition: 'Collector Hardcover',
-    createdAt: '2025-01-01',
-    binding: 'hardcover',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['feluda', 'satyajit ray', 'ফেলুদা', 'সত্যজিৎ রায়', 'আনন্দ'],
-  },
-  {
-    id: 'book-15',
-    bookId: 'book-byomkesh-samagra',
-    title: 'Byomkesh Samagra (Complete Stories) by Sharadindu Bandyopadhyay',
-    titleBn: 'ব্যোমকেশ সমগ্র (সম্পূর্ণ ৩২টি রহস্য গল্প) - শরদিন্দু বন্দ্যোপাধ্যায়',
-    author: 'শরদিন্দু বন্দ্যোপাধ্যায়',
-    publisher: 'আনন্দ পাবলিশার্স',
-    category: 'bengali-literature',
-    categoryName: 'বাংলা সাহিত্য ও উপন্যাস',
-    subCategory: 'detective-byomkesh',
-    subCategoryName: 'ব্যোমকেশ সমগ্র - শরদিন্দু',
-    price: 595,
-    mrp: 700,
-    discount: '15%',
-    badge: 'CLASSIC',
-    rating: 4.9,
-    reviewsCount: 890,
-    inStock: true,
-    edition: 'Deluxe Hardcover',
-    createdAt: '2024-12-01',
-    binding: 'hardcover',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['byomkesh', 'ব্যোমকেশ', 'শরদিন্দু', 'রহস্য গল্প'],
-  },
-  {
-    id: 'book-16',
-    bookId: 'book-sanchayita-rabindranath',
-    title: 'Sanchayita (Complete Poetry Collection) - Rabindranath Tagore',
-    titleBn: 'সঞ্চয়িতা (অখণ্ড রবীন্দ্র কাব্য সংকলন) - রবীন্দ্রনাথ ঠাকুর',
-    author: 'রবীন্দ্রনাথ ঠাকুর',
-    publisher: 'বিশ্বভারতী গ্রন্থন বিভাগ',
-    category: 'bengali-literature',
-    categoryName: 'বাংলা সাহিত্য ও উপন্যাস',
-    subCategory: 'tagore-poetry',
-    subCategoryName: 'রবীন্দ্র সাহিত্য ও সঞ্চয়িতা',
-    price: 450,
-    mrp: 500,
-    discount: '10%',
-    rating: 4.9,
-    reviewsCount: 750,
-    inStock: true,
-    edition: 'Official Visva-Bharati Edition',
-    createdAt: '2023-05-08',
-    binding: 'hardcover',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['সঞ্চয়িতা', 'রবীন্দ্রনাথ', 'tagore', 'কবিতা'],
-  },
-  {
-    id: 'book-17',
-    bookId: 'book-sei-somoy-sunil',
-    title: 'Sei Somoy (Volume 1 & 2 Complete) by Sunil Gangopadhyay',
-    titleBn: 'সেই সময় (১ম ও ২য় খণ্ড একত্রে) - সুনীল গঙ্গোপাধ্যায়',
-    author: 'সুনীল গঙ্গোপাধ্যায়',
-    publisher: 'আনন্দ পাবলিশার্স',
-    category: 'bengali-literature',
-    categoryName: 'বাংলা সাহিত্য ও উপন্যাস',
-    subCategory: 'historical-novels',
-    subCategoryName: 'ধ্রুপদী ও আধুনিক উপন্যাস',
-    price: 680,
-    mrp: 850,
-    discount: '20%',
-    badge: 'AKADEMI AWARD',
-    rating: 4.9,
-    reviewsCount: 940,
-    inStock: true,
-    edition: 'Popular Edition',
-    createdAt: '2024-08-15',
-    binding: 'hardcover',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['সেই সময়', 'সুনীল', 'উপন্যাস', 'gangopadhyay'],
-  },
-  {
-    id: 'book-18',
-    bookId: 'book-madhyamik-pariksha-prastuti',
-    title: 'Madhyamik 2026 All-in-One Suggestion & Practice Book (WBBSE)',
-    titleBn: 'মাধ্যমিক ২০২৬ অল-ইন-ওয়ান লাস্ট মিনিট সাজেশন ও মডেল পেপার্স',
-    author: 'অভিজ্ঞ শিক্ষক পরিষদ মালদা শাখা',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'school-madhyamik-hs',
-    categoryName: 'স্কুল (মাধ্যমিক ও উচ্চমাধ্যমিক)',
-    subCategory: 'madhyamik-10',
-    subCategoryName: 'মাধ্যমিক দশম শ্রেণি (WBBSE)',
-    price: 290,
-    mrp: 390,
-    discount: '25%',
-    badge: 'FAST SELLING',
-    rating: 4.8,
-    reviewsCount: 520,
-    inStock: true,
-    edition: '2026 WBBSE',
-    createdAt: '2026-08-05',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['madhyamik', 'মাধ্যমিক', 'wbbse', 'ছায়া', 'সাজেশন'],
-  },
-  {
-    id: 'book-19',
-    bookId: 'book-hs-science-combo-2026',
-    title: 'WBCHSE Class 12 Science Solved Test Papers (Phys, Chem, Math, Bio)',
-    titleBn: 'উচ্চমাধ্যমিক দ্বাদশ বিজ্ঞান বিভাগ টেস্ট পেপারস সমাধান ২০২৬',
-    author: 'ছায়া সায়েন্স বিশেষজ্ঞ ফোরাম',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'school-madhyamik-hs',
-    categoryName: 'স্কুল (মাধ্যমিক ও উচ্চমাধ্যমিক)',
-    subCategory: 'hs-12',
-    subCategoryName: 'উচ্চমাধ্যমিক দ্বাদশ শ্রেণি (WBCHSE)',
-    price: 480,
-    mrp: 640,
-    discount: '25%',
-    rating: 4.7,
-    reviewsCount: 340,
-    inStock: true,
-    edition: '2026 Exam Special',
-    createdAt: '2026-07-30',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['hs', 'উচ্চমাধ্যমিক', 'wbchse', 'class 12', 'সায়েন্স'],
-  },
-  {
-    id: 'book-20',
-    bookId: 'book-malda-itihas-heritage',
-    title: 'Gour O Panduar Aitihasik Bibaran (History of Malda Heritage)',
-    titleBn: 'গৌড় ও পাণ্ডুয়ার ঐতিহাসিক বিবরণ ও প্রত্নতত্ত্ব সহায়িকা',
-    author: 'ড. রাধাগোবিন্দ বসাক',
-    publisher: 'এম.এম হেরিটেজ প্রেস',
-    category: 'college-university',
-    categoryName: 'কলেজ ও বিশ্ববিদ্যালয়',
-    subCategory: 'malda-heritage',
-    subCategoryName: 'মালদা হেরিটেজ ও আঞ্চলিক ইতিহাস',
-    price: 232,
-    mrp: 290,
-    discount: '20%',
-    badge: 'MALDA SPECIAL',
-    rating: 4.9,
-    reviewsCount: 92,
-    inStock: true,
-    edition: 'Heritage Edition',
-    createdAt: '2025-09-12',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['গৌড়', 'মালদা', 'পাণ্ডুয়া', 'ইতিহাস', 'malda'],
-  },
-  {
-    id: 'book-21',
-    bookId: 'book-wbcs-all-in-one-bundle',
-    title: 'WBCS 2026 Complete Success Combo Set (Manual + Scanner + Yearbook)',
-    titleBn: 'WBCS ২০২৬ সম্পূর্ণ প্রস্তুতি কম্বো বান্ডল (ম্যানুয়াল + স্ক্যানার + ইয়ারবুক একত্রে)',
-    author: 'ছায়া ও এম.এম সিভিল সার্ভিস গবেষণা পর্ষদ',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'wbcs-special',
-    categoryName: 'WBCS ও সিভিল সার্ভিস',
-    subCategory: 'wbcs-bundle',
-    subCategoryName: 'সম্পূর্ণ কম্বো বান্ডল প্যাকেজ',
-    price: 999,
-    mrp: 1820,
-    discount: '45%',
-    badge: 'COMBO PACK',
-    rating: 4.9,
-    reviewsCount: 178,
-    inStock: true,
-    edition: '2026 3-in-1 Bundle Set',
-    createdAt: '2026-08-20',
-    binding: 'bundle',
-    condition: 'new',
-    language: 'bilingual',
-    keywords: ['wbcs', 'combo', 'bundle', 'বান্ডল', 'সেট'],
-  },
-  {
-    id: 'book-22',
-    bookId: 'book-tet-practice-combo',
-    title: 'WB Primary TET Challenger + 30 Mock Papers Combo Bundle',
-    titleBn: 'প্রাথমিক টেট ২০২৬ সুপার কম্বো বান্ডল (চ্যালেঞ্জার ও ৩০টি ওএমআর মক পেপার্স)',
-    author: 'শান্তনু পাত্র ও অভিজ্ঞ শিক্ষক পরিষদ',
-    publisher: 'ছায়া প্রকাশনী',
-    category: 'primary-tet-slst',
-    categoryName: 'টেট ও স্কুল সার্ভিস',
-    subCategory: 'primary-tet',
-    subCategoryName: 'প্রাথমিক টেট (Primary TET)',
-    price: 520,
-    mrp: 850,
-    discount: '39%',
-    badge: 'STUDENT SAVER',
-    rating: 4.8,
-    reviewsCount: 290,
-    inStock: true,
-    edition: '2026 Bundle Pack',
-    createdAt: '2026-08-18',
-    binding: 'bundle',
-    condition: 'new',
-    language: 'bengali',
-    keywords: ['tet', 'combo', 'bundle', 'বান্ডল', 'টেট'],
-  },
-  {
-    id: 'book-23',
-    bookId: 'book-lucent-gk-english',
-    title: 'Lucent General Knowledge (Comprehensive English Edition 2026)',
-    titleBn: 'লুসেন্ট জেনারেল নলেজ (কম্প্রিহেনসিভ ইংলিশ এডিশন ২০২৬)',
-    author: 'Dr. Binay Karna & Manwendra Mukul',
-    publisher: 'পারুল প্রকাশনী',
-    category: 'competitive-exams',
-    categoryName: 'সরকারি চাকরির পরীক্ষা',
-    subCategory: 'ssc-central',
-    subCategoryName: 'স্টাফ সিলেকশন কমিশন (SSC)',
-    price: 340,
-    mrp: 450,
-    discount: '24%',
-    badge: 'ENGLISH MEDIUM',
-    rating: 4.8,
-    reviewsCount: 420,
-    inStock: true,
-    edition: '2026 Latest Edition',
-    createdAt: '2026-07-30',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'english',
-    keywords: ['lucent', 'gk', 'english', 'ssc', 'general knowledge', 'ইংরেজি'],
-  },
-  {
-    id: 'book-24',
-    bookId: 'book-kiran-rrb-hindi',
-    title: 'Railway RRB ALP & Technician Samanya Adhyayan (Hindi Medium)',
-    titleBn: 'রেলওয়ে রিক্রুটমেন্ট (RRB) টেকনিশিয়ান সাধারণ অধ্যয়ন (হিন্দি মাধ্যম)',
-    author: 'Kiran Expert Research Panel',
-    publisher: 'এম.এম হেরিটেজ প্রেস',
-    category: 'competitive-exams',
-    categoryName: 'সরকারি চাকরির পরীক্ষা',
-    subCategory: 'railway-rrb',
-    subCategoryName: 'রেলওয়ে রিক্রুটমেন্ট (RRB)',
-    price: 295,
-    mrp: 420,
-    discount: '30%',
-    badge: 'HINDI EDITION',
-    rating: 4.6,
-    reviewsCount: 165,
-    inStock: true,
-    edition: '2026 Hindi Edition',
-    createdAt: '2026-06-25',
-    binding: 'paperback',
-    condition: 'new',
-    language: 'hindi',
-    keywords: ['railway', 'rrb', 'hindi', 'kiran', 'হিন্দি', 'রেলওয়ে'],
-  },
-];
+import { SEARCH_CATALOG } from '@/lib/data/searchCatalog';
+import { levenshteinDistance } from '@/lib/utils/searchEngine';
+import {
+  parseAndSanitizeSearchParams,
+  serializeFilterParams,
+  sanitizeString,
+} from '@/lib/utils/searchParamsSanitizer';
 
 const POPULAR_SUGGESTION_TAGS = [
   'WBCS ২০২৬',
@@ -651,242 +51,269 @@ const POPULAR_SUGGESTION_TAGS = [
   'ছায়া প্রকাশনী',
 ];
 
+const DEFAULT_PAGE_SIZE = 24;
+
 function SearchResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { language, isBengali } = useLanguage();
-  const { addItem } = useCartStore();
-  const { toggleItem: toggleWishlistItem } = useWishlistActions();
-  const isInWishlist = useWishlistStore((state) => state.isInWishlist);
+  const { isBengali } = useLanguage();
 
-  // URL Query Parameters
-  const queryParam = searchParams.get('q') || '';
-  const categoryParam = searchParams.get('category') || 'all';
+  // URL Query Parameters sanitized (Task 37)
+  const rawQ = searchParams.get('q') || searchParams.get('query');
+  const queryParam = useMemo(() => sanitizeString(rawQ, 100), [rawQ]);
 
-  // State Management initialized from URL params (Critical Bug 2 fix)
-  const [filterState, setFilterState] = useState<FilterState>(() => ({
-    category: searchParams.get('category') || 'all',
-    subCategory: searchParams.get('subCategory') || undefined,
-    authors: searchParams.get('authors')?.split(',').filter(Boolean) || [],
-    publishers: searchParams.get('publishers')?.split(',').filter(Boolean) || [],
-    formats: searchParams.get('formats')?.split(',').filter(Boolean) || [],
-    conditions: searchParams.get('conditions')?.split(',').filter(Boolean) || [],
-    languages: searchParams.get('languages')?.split(',').filter(Boolean) || [],
-    minRating: Number(searchParams.get('rating') || '0'),
-    minPrice: searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined,
-    maxPrice: searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined,
-    discountRange: searchParams.get('discount') ? Number(searchParams.get('discount')) : undefined,
-  }));
-
-  const [sortBy, setSortBy] = useState<SortOption>(
-    (searchParams.get('sort') as SortOption) || 'relevance'
+  // Initial parsed & sanitized state from URL (Tasks 37 & 40)
+  const initialParsedState = useMemo(
+    () => parseAndSanitizeSearchParams(searchParams),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    (searchParams.get('view') as ViewMode) || 'grid'
-  );
+  const [filterState, setFilterState] = useState<FilterState>(initialParsedState.filterState);
+  const [sortBy, setSortBy] = useState<SortOption>(initialParsedState.sortBy);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialParsedState.viewMode);
+  const [currentPage, setCurrentPage] = useState<number>(initialParsedState.page || 1);
+  const [pageSize, setPageSize] = useState<number>(initialParsedState.pageSize || DEFAULT_PAGE_SIZE);
 
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-  const [addedBooks, setAddedBooks] = useState<Record<string, boolean>>({});
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // URL sync helper (router.replace without scroll)
-  const syncFiltersToUrl = (nextFilter: FilterState, nextSort: SortOption, nextView: ViewMode) => {
-    const params = new URLSearchParams();
+  // Debounced URL sync helper (Task 36: Clean History Stack & No Lag)
+  const urlSyncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-    if (queryParam) params.set('q', queryParam);
-    if (nextFilter.category && nextFilter.category !== 'all') params.set('category', nextFilter.category);
-    if (nextFilter.subCategory) params.set('subCategory', nextFilter.subCategory);
-    if (nextFilter.authors.length > 0) params.set('authors', nextFilter.authors.join(','));
-    if (nextFilter.publishers.length > 0) params.set('publishers', nextFilter.publishers.join(','));
-    if (nextFilter.formats.length > 0) params.set('formats', nextFilter.formats.join(','));
-    if (nextFilter.conditions.length > 0) params.set('conditions', nextFilter.conditions.join(','));
-    if (nextFilter.languages.length > 0) params.set('languages', nextFilter.languages.join(','));
-    if (nextFilter.minRating > 0) params.set('rating', String(nextFilter.minRating));
-    if (nextFilter.minPrice !== undefined) params.set('minPrice', String(nextFilter.minPrice));
-    if (nextFilter.maxPrice !== undefined) params.set('maxPrice', String(nextFilter.maxPrice));
-    if (nextFilter.discountRange !== undefined) params.set('discount', String(nextFilter.discountRange));
-    if (nextSort !== 'relevance') params.set('sort', nextSort);
-    if (nextView !== 'grid') params.set('view', nextView);
+  const syncFiltersToUrl = (
+    nextFilter: FilterState,
+    nextSort: SortOption,
+    nextView: ViewMode,
+    nextPage: number,
+    immediate = false,
+    nextPageSize?: number
+  ) => {
+    if (urlSyncTimeoutRef.current) {
+      clearTimeout(urlSyncTimeoutRef.current);
+      urlSyncTimeoutRef.current = null;
+    }
 
-    const queryString = params.toString();
-    router.replace(queryString ? `/search?${queryString}` : '/search', { scroll: false });
+    const doSync = () => {
+      const activeSize = nextPageSize !== undefined ? nextPageSize : pageSize;
+      const queryString = serializeFilterParams(nextFilter, nextSort, nextView, queryParam, nextPage, activeSize);
+      router.replace(queryString ? `/search?${queryString}` : '/search', { scroll: false });
+    };
+
+    if (immediate) {
+      doSync();
+    } else {
+      urlSyncTimeoutRef.current = setTimeout(doSync, 60);
+    }
   };
 
-  const handleFilterChange = (next: FilterState) => {
+  useEffect(() => {
+    return () => {
+      if (urlSyncTimeoutRef.current) {
+        clearTimeout(urlSyncTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleFilterChange = (next: FilterState, immediate = false) => {
+    // When filters change, reset to page 1
+    setCurrentPage(1);
     setFilterState(next);
-    syncFiltersToUrl(next, sortBy, viewMode);
+    syncFiltersToUrl(next, sortBy, viewMode, 1, immediate);
   };
 
   const handleSortChange = (next: SortOption) => {
     setSortBy(next);
-    syncFiltersToUrl(filterState, next, viewMode);
+    syncFiltersToUrl(filterState, next, viewMode, currentPage, true);
   };
 
   const handleViewModeChange = (next: ViewMode) => {
     setViewMode(next);
-    syncFiltersToUrl(filterState, sortBy, next);
+    syncFiltersToUrl(filterState, sortBy, next, currentPage, true);
   };
 
-  // Sync state with URL when browser Back/Forward navigation occurs
-  useEffect(() => {
-    const urlCategory = searchParams.get('category') || 'all';
-    const urlSubCategory = searchParams.get('subCategory') || undefined;
-    const urlAuthors = searchParams.get('authors')?.split(',').filter(Boolean) || [];
-    const urlPublishers = searchParams.get('publishers')?.split(',').filter(Boolean) || [];
-    const urlFormats = searchParams.get('formats')?.split(',').filter(Boolean) || [];
-    const urlConditions = searchParams.get('conditions')?.split(',').filter(Boolean) || [];
-    const urlLanguages = searchParams.get('languages')?.split(',').filter(Boolean) || [];
-    const urlRating = Number(searchParams.get('rating') || '0');
-    const urlSort = (searchParams.get('sort') as SortOption) || 'relevance';
-    const urlView = (searchParams.get('view') as ViewMode) || 'grid';
+  const handlePageChange = (nextPage: number) => {
+    setIsTransitioning(true);
+    setCurrentPage(nextPage);
+    syncFiltersToUrl(filterState, sortBy, viewMode, nextPage, true);
+    if (typeof window !== 'undefined') {
+      const topTarget = document.getElementById('search-results-top');
+      if (topTarget) {
+        topTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+    setTimeout(() => setIsTransitioning(false), 200);
+  };
 
-    setFilterState({
-      category: urlCategory,
-      subCategory: urlSubCategory,
-      authors: urlAuthors,
-      publishers: urlPublishers,
-      formats: urlFormats,
-      conditions: urlConditions,
-      languages: urlLanguages,
-      minRating: urlRating,
-      minPrice: searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined,
-      maxPrice: searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined,
-      discountRange: searchParams.get('discount') ? Number(searchParams.get('discount')) : undefined,
-    });
-    setSortBy(urlSort);
-    setViewMode(urlView);
+  const handlePageSizeChange = (nextSize: number) => {
+    setIsTransitioning(true);
+    setPageSize(nextSize);
+    setCurrentPage(1);
+    syncFiltersToUrl(filterState, sortBy, viewMode, 1, true, nextSize);
+    if (typeof window !== 'undefined') {
+      const topTarget = document.getElementById('search-results-top');
+      if (topTarget) {
+        topTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    setTimeout(() => setIsTransitioning(false), 200);
+  };
+
+  // Sync state with URL when browser Back/Forward navigation occurs (Tasks 32 & 40)
+  useEffect(() => {
+    const parsed = parseAndSanitizeSearchParams(searchParams);
+    setFilterState(parsed.filterState);
+    setSortBy(parsed.sortBy);
+    setViewMode(parsed.viewMode);
+    setCurrentPage(parsed.page);
+    if (parsed.pageSize) {
+      setPageSize(parsed.pageSize);
+    }
   }, [searchParams]);
+
+  // Text search predicate
+  const matchesQuery = (book: BookProduct, q: string) => {
+    if (!q) return true;
+    const qLower = q.toLowerCase();
+    const matchTitle = book.title.toLowerCase().includes(qLower);
+    const matchTitleBn = book.titleBn.toLowerCase().includes(qLower);
+    const matchAuthor = book.author.toLowerCase().includes(qLower);
+    const matchPublisher = book.publisher.toLowerCase().includes(qLower);
+    const matchCategory = book.categoryName.toLowerCase().includes(qLower);
+    const matchKeywords = book.keywords?.some((k) => k.toLowerCase().includes(qLower));
+    return matchTitle || matchTitleBn || matchAuthor || matchPublisher || matchCategory || matchKeywords;
+  };
+
+  // Individual Facet Predicates
+  const matchesCategory = (b: BookProduct, cat: string, subCat?: string) => {
+    if (cat && cat !== 'all' && b.category !== cat) return false;
+    if (subCat && b.subCategory !== subCat) return false;
+    return true;
+  };
+
+  const matchesAuthors = (b: BookProduct, authors: string[]) => {
+    if (authors.length === 0) return true;
+    return authors.some((author) => b.author.includes(author));
+  };
+
+  const matchesPublishers = (b: BookProduct, publishers: string[]) => {
+    if (publishers.length === 0) return true;
+    return publishers.some((pub) => b.publisher === pub || b.publisher.includes(pub) || pub.includes(b.publisher));
+  };
+
+  const matchesFormats = (b: BookProduct, formats: string[]) => {
+    if (formats.length === 0) return true;
+    return b.binding ? formats.includes(b.binding) : false;
+  };
+
+  const matchesConditions = (b: BookProduct, conditions: string[]) => {
+    if (conditions.length === 0) return true;
+    return b.condition ? conditions.includes(b.condition) : false;
+  };
+
+  const matchesLanguages = (b: BookProduct, languages: string[]) => {
+    if (languages.length === 0) return true;
+    return b.language ? languages.includes(b.language) : false;
+  };
+
+  const matchesRating = (b: BookProduct, minRating: number) => {
+    if (minRating <= 0) return true;
+    return b.rating >= minRating;
+  };
+
+  const matchesDiscount = (b: BookProduct, discountRange?: number) => {
+    if (discountRange === undefined || discountRange <= 0) return true;
+    if (!b.mrp || b.mrp <= 0 || b.price >= b.mrp) return false;
+    const discountVal = Math.round(((b.mrp - b.price) / b.mrp) * 100);
+    return discountVal >= discountRange;
+  };
+
+  const matchesPrice = (b: BookProduct, minPrice?: number, maxPrice?: number) => {
+    if (minPrice !== undefined && b.price < minPrice) return false;
+    if (maxPrice !== undefined && b.price > maxPrice) return false;
+    return true;
+  };
+
+  // Master Filter Matching Predicate (reused by filteredBooks and computeMatchCount)
+  const matchesAllFilters = (book: BookProduct, state: FilterState, q: string) => {
+    if (!matchesQuery(book, q)) return false;
+    if (!matchesCategory(book, state.category, state.subCategory)) return false;
+    if (!matchesAuthors(book, state.authors)) return false;
+    if (!matchesPublishers(book, state.publishers)) return false;
+    if (!matchesFormats(book, state.formats)) return false;
+    if (!matchesConditions(book, state.conditions)) return false;
+    if (!matchesLanguages(book, state.languages)) return false;
+    if (!matchesRating(book, state.minRating)) return false;
+    if (!matchesDiscount(book, state.discountRange)) return false;
+    if (!matchesPrice(book, state.minPrice, state.maxPrice)) return false;
+    return true;
+  };
+
+  // High-performance live match counter for Mobile Drawer draft state (Task 5)
+  const computeMatchCount = React.useCallback(
+    (draft: FilterState) => {
+      const qTrimmed = queryParam.trim();
+      return SEARCH_CATALOG.filter((book) => matchesAllFilters(book, draft, qTrimmed)).length;
+    },
+    [queryParam]
+  );
 
   // Compute live filtered books based on search query, category, and multi-facet selections
   const filteredBooks = useMemo(() => {
-    const qLower = queryParam.trim().toLowerCase();
+    const qTrimmed = queryParam.trim();
 
-    return SEARCH_CATALOG.filter((book) => {
-      // 1. Text Query Filter
-      if (qLower) {
-        const matchTitle = book.title.toLowerCase().includes(qLower);
-        const matchTitleBn = book.titleBn.toLowerCase().includes(qLower);
-        const matchAuthor = book.author.toLowerCase().includes(qLower);
-        const matchPublisher = book.publisher.toLowerCase().includes(qLower);
-        const matchCategory = book.categoryName.toLowerCase().includes(qLower);
-        const matchKeywords = book.keywords?.some((k) => k.toLowerCase().includes(qLower));
+    return SEARCH_CATALOG.filter((book) => matchesAllFilters(book, filterState, qTrimmed)).sort((a, b) => {
+      // Helper for effective deal price comparison (Task 26)
+      const getEffectivePrice = (item: BookProduct) => {
+        const deal = getActiveDealForBook(item.bookId);
+        return deal ? deal.dealPrice : item.price;
+      };
 
-        if (!matchTitle && !matchTitleBn && !matchAuthor && !matchPublisher && !matchCategory && !matchKeywords) {
-          return false;
-        }
-      }
-
-      // 2. Department / Category & Sub-Category Filter (Task 11)
-      if (filterState.category && filterState.category !== 'all') {
-        if (book.category !== filterState.category) {
-          return false;
-        }
-      }
-      if (filterState.subCategory) {
-        if (book.subCategory !== filterState.subCategory) {
-          return false;
-        }
-      }
-
-      // 3. Authors Filter (OR within group)
-      if (filterState.authors.length > 0) {
-        const authorMatch = filterState.authors.some((author) =>
-          book.author.includes(author)
-        );
-        if (!authorMatch) return false;
-      }
-
-      // 4. Publishers Filter (OR within group)
-      if (filterState.publishers.length > 0) {
-        const pubMatch = filterState.publishers.includes(book.publisher);
-        if (!pubMatch) return false;
-      }
-
-      // 5. Binding Format Filter (OR within group)
-      if (filterState.formats.length > 0) {
-        const formatMatch = book.binding ? filterState.formats.includes(book.binding) : false;
-        if (!formatMatch) return false;
-      }
-
-      // 6. Condition Filter (OR within group)
-      if (filterState.conditions.length > 0) {
-        const conditionMatch = book.condition ? filterState.conditions.includes(book.condition) : false;
-        if (!conditionMatch) return false;
-      }
-
-      // 7. Languages Filter (Moderate Bug 3 fix)
-      if (filterState.languages.length > 0) {
-        const langMatch = book.language ? filterState.languages.includes(book.language) : false;
-        if (!langMatch) return false;
-      }
-
-      // 8. Rating Filter (>= minRating)
-      if (filterState.minRating > 0) {
-        if (book.rating < filterState.minRating) {
-          return false;
-        }
-      }
-
-      // 9. Discount Range Filter (Task 17 & 20)
-      if (filterState.discountRange !== undefined && filterState.discountRange > 0) {
-        const discountVal = Math.round(((book.mrp - book.price) / book.mrp) * 100);
-        if (discountVal < filterState.discountRange) {
-          return false;
-        }
-      }
-
-      // 10. Price Range Filter (Task 19 & 20)
-      if (filterState.minPrice !== undefined) {
-        if (book.price < filterState.minPrice) return false;
-      }
-      if (filterState.maxPrice !== undefined) {
-        if (book.price > filterState.maxPrice) return false;
-      }
-
-      return true;
-    }).sort((a, b) => {
-      // Task 26: Smart Price Low-to-High sorting (₹0 & out-of-stock items placed at end; in-stock lowest price first)
+      // Task 26: Smart Price Low-to-High sorting (in-stock lowest price first)
       if (sortBy === 'price-asc') {
         const aValid = a.inStock && a.price > 0;
         const bValid = b.inStock && b.price > 0;
         if (aValid && !bValid) return -1;
         if (!aValid && bValid) return 1;
 
-        if (aValid && bValid) {
-          if (a.price !== b.price) return a.price - b.price;
-          return (b.rating || 0) - (a.rating || 0);
-        }
-        return a.price - b.price;
+        const priceA = getEffectivePrice(a);
+        const priceB = getEffectivePrice(b);
+        if (priceA !== priceB) return priceA - priceB;
+        return (b.rating || 0) - (a.rating || 0);
       }
 
       // Price: High to Low (In-stock prioritized over out-of-stock)
       if (sortBy === 'price-desc') {
         if (a.inStock && !b.inStock) return -1;
         if (!a.inStock && b.inStock) return 1;
-        if (a.price !== b.price) return b.price - a.price;
+        const priceA = getEffectivePrice(a);
+        const priceB = getEffectivePrice(b);
+        if (priceA !== priceB) return priceB - priceA;
         return (b.rating || 0) - (a.rating || 0);
       }
 
       // Task 27: Bayesian Weighted Average Rating sorting
-      // Formula: W = (v * R + m * C) / (v + m)
-      // Prevents 1 review of 5.0★ outranking 200 reviews of 4.8★
+      // Fix: 0-review items must rank below verified reviewed items
       if (sortBy === 'rating') {
-        const PRIOR_MEAN = 4.2;
-        const MIN_REVIEWS = 10;
-        const vA = a.reviewsCount || 0;
-        const vB = b.reviewsCount || 0;
-        const bayesA = ((vA * a.rating) + (MIN_REVIEWS * PRIOR_MEAN)) / (vA + MIN_REVIEWS);
-        const bayesB = ((vB * b.rating) + (MIN_REVIEWS * PRIOR_MEAN)) / (vB + MIN_REVIEWS);
+        const getRatingScore = (item: BookProduct) => {
+          const v = item.reviewsCount || 0;
+          if (v === 0) return 0;
+          const PRIOR_MEAN = 4.0;
+          const MIN_REVIEWS = 5;
+          return (v * item.rating + MIN_REVIEWS * PRIOR_MEAN) / (v + MIN_REVIEWS);
+        };
 
-        if (Math.abs(bayesB - bayesA) > 0.001) {
-          return bayesB - bayesA;
+        const scoreA = getRatingScore(a);
+        const scoreB = getRatingScore(b);
+        if (Math.abs(scoreB - scoreA) > 0.001) {
+          return scoreB - scoreA;
         }
-        if (vB !== vA) return vB - vA;
-        return b.rating - a.rating;
+        return (b.reviewsCount || 0) - (a.reviewsCount || 0);
       }
 
       // Task 28: Edition & Release Date-based "Newest Arrivals" sorting
-      // Combines 4-digit edition year (e.g. 2026 from "2026-27 CBCS") and createdAt ISO date
       if (sortBy === 'newest') {
         const getEditionYear = (item: BookProduct) => {
           const match = item.edition?.match(/20\d{2}/);
@@ -895,7 +322,6 @@ function SearchResultsContent() {
 
         const yearA = getEditionYear(a);
         const yearB = getEditionYear(b);
-
         if (yearA !== yearB) {
           return yearB - yearA;
         }
@@ -909,7 +335,7 @@ function SearchResultsContent() {
         return (b.rating || 0) - (a.rating || 0);
       }
 
-      // Task 29: Rolling 30-Day "Best Selling" sorting (orders volume + reviews count + badge multiplier)
+      // Task 29: Rolling 30-Day "Best Selling" sorting
       if (sortBy === 'bestselling') {
         if (a.inStock && !b.inStock) return -1;
         if (!a.inStock && b.inStock) return 1;
@@ -933,7 +359,7 @@ function SearchResultsContent() {
       }
 
       // Task 25: Multi-Factor Weighted Relevance (Featured / Relevance)
-      // Score = (Text Relevance × 0.45) + (Bayesian Rating × 0.30) + (Popularity/Sales × 0.15) + (InStock × 0.10)
+      const qLower = qTrimmed.toLowerCase();
       const getTextRelevance = (item: BookProduct) => {
         if (!qLower) return 1.0;
         if (item.title.toLowerCase().includes(qLower) || item.titleBn.toLowerCase().includes(qLower)) return 1.0;
@@ -948,8 +374,8 @@ function SearchResultsContent() {
 
       const vA = a.reviewsCount || 0;
       const vB = b.reviewsCount || 0;
-      const bayesA = ((vA * a.rating) + (10 * 4.2)) / (vA + 10);
-      const bayesB = ((vB * b.rating) + (10 * 4.2)) / (vB + 10);
+      const bayesA = vA > 0 ? ((vA * a.rating) + (5 * 4.0)) / (vA + 5) : 1.0;
+      const bayesB = vB > 0 ? ((vB * b.rating) + (5 * 4.0)) / (vB + 5) : 1.0;
 
       const popA = Math.min(vA / 500, 1.0);
       const popB = Math.min(vB / 500, 1.0);
@@ -964,63 +390,85 @@ function SearchResultsContent() {
     });
   }, [queryParam, filterState, sortBy]);
 
-  // Dynamically compute Facet Groups & Counts from the catalog matching current query
-  const facetGroups = useMemo<FacetGroup[]>(() => {
-    // Subset of books matching query only (so facets show available counts)
-    const qLower = queryParam.trim().toLowerCase();
-    const queryMatchedBooks = SEARCH_CATALOG.filter((book) => {
-      if (!qLower) return true;
-      const matchTitle = book.title.toLowerCase().includes(qLower);
-      const matchTitleBn = book.titleBn.toLowerCase().includes(qLower);
-      const matchAuthor = book.author.toLowerCase().includes(qLower);
-      const matchPublisher = book.publisher.toLowerCase().includes(qLower);
-      const matchCategory = book.categoryName.toLowerCase().includes(qLower);
-      const matchKeywords = book.keywords?.some((k) => k.toLowerCase().includes(qLower));
-      return matchTitle || matchTitleBn || matchAuthor || matchPublisher || matchCategory || matchKeywords;
-    });
+  // Paginated books slice (Task 46 & 47)
+  const totalPages = Math.max(1, Math.ceil(filteredBooks.length / pageSize));
+  const pagedBooks = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredBooks.slice(start, start + pageSize);
+  }, [filteredBooks, currentPage, pageSize]);
 
-    // 1. Categories
+  // DISJUNCTIVE FACETING ENGINE
+  // Computes facet counts across each dimension by applying all active filters except that dimension
+  const facetGroups = useMemo<FacetGroup[]>(() => {
+    const qTrimmed = queryParam.trim();
+
+    // Base query match
+    const baseQueryBooks = SEARCH_CATALOG.filter((b) => matchesQuery(b, qTrimmed));
+
+    // 1. Category Facet: All filters applied EXCEPT category & subCategory
+    const categoryFiltered = baseQueryBooks.filter((b) =>
+      matchesAuthors(b, filterState.authors) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesDiscount(b, filterState.discountRange) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
     const categoryOptions = [
-      { id: 'all', label: 'All Departments', labelBn: 'সকল বিভাগ', count: queryMatchedBooks.length },
+      { id: 'all', label: 'All Departments', labelBn: 'সকল বিভাগ', count: categoryFiltered.length },
       {
         id: 'wbcs-special',
         label: 'WBCS Special',
         labelBn: 'WBCS ও সিভিল সার্ভিস',
-        count: queryMatchedBooks.filter((b) => b.category === 'wbcs-special').length,
+        count: categoryFiltered.filter((b) => b.category === 'wbcs-special').length,
       },
       {
         id: 'college-university',
         label: 'College & University',
         labelBn: 'কলেজ ও বিশ্ববিদ্যালয়',
-        count: queryMatchedBooks.filter((b) => b.category === 'college-university').length,
+        count: categoryFiltered.filter((b) => b.category === 'college-university').length,
       },
       {
         id: 'primary-tet-slst',
         label: 'Primary TET & School Service',
         labelBn: 'টেট ও স্কুল সার্ভিস',
-        count: queryMatchedBooks.filter((b) => b.category === 'primary-tet-slst').length,
+        count: categoryFiltered.filter((b) => b.category === 'primary-tet-slst').length,
       },
       {
         id: 'competitive-exams',
         label: 'Competitive Exams (Police/RRB)',
         labelBn: 'সরকারি চাকরির পরীক্ষা',
-        count: queryMatchedBooks.filter((b) => b.category === 'competitive-exams').length,
+        count: categoryFiltered.filter((b) => b.category === 'competitive-exams').length,
       },
       {
         id: 'bengali-literature',
         label: 'Bengali Literature & Fiction',
         labelBn: 'বাংলা সাহিত্য ও উপন্যাস',
-        count: queryMatchedBooks.filter((b) => b.category === 'bengali-literature').length,
+        count: categoryFiltered.filter((b) => b.category === 'bengali-literature').length,
       },
       {
         id: 'school-madhyamik-hs',
         label: 'School (Madhyamik & HS)',
         labelBn: 'স্কুল (মাধ্যমিক ও উচ্চমাধ্যমিক)',
-        count: queryMatchedBooks.filter((b) => b.category === 'school-madhyamik-hs').length,
+        count: categoryFiltered.filter((b) => b.category === 'school-madhyamik-hs').length,
       },
     ];
 
-    // 2. Authors
+    // 2. Authors Facet: All filters applied EXCEPT authors
+    const authorFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesDiscount(b, filterState.discountRange) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
     const topAuthors = [
       'ড. অশোক কুমার ঘোষ',
       'সত্যজিৎ রায়',
@@ -1034,10 +482,21 @@ function SearchResultsContent() {
       id: author,
       label: author,
       labelBn: author,
-      count: queryMatchedBooks.filter((b) => b.author.includes(author)).length,
+      count: authorFiltered.filter((b) => b.author.includes(author)).length,
     }));
 
-    // 3. Publishers
+    // 3. Publishers Facet: All filters applied EXCEPT publishers
+    const publisherFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesAuthors(b, filterState.authors) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesDiscount(b, filterState.discountRange) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
     const topPublishers = [
       'ছায়া প্রকাশনী',
       'আনন্দ পাবলিশার্স',
@@ -1053,133 +512,199 @@ function SearchResultsContent() {
       id: pub,
       label: pub,
       labelBn: pub,
-      count: queryMatchedBooks.filter((b) => b.publisher === pub).length,
+      count: publisherFiltered.filter((b) => b.publisher === pub).length,
     }));
 
-    // 4. Binding Format
+    // 4. Binding Format: All filters applied EXCEPT formats
+    const formatFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesAuthors(b, filterState.authors) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesDiscount(b, filterState.discountRange) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
     const formatOptions = [
       {
         id: 'paperback',
         label: 'Paperback',
         labelBn: 'পেপারব্যাক (Paperback)',
-        count: queryMatchedBooks.filter((b) => b.binding === 'paperback').length,
+        count: formatFiltered.filter((b) => b.binding === 'paperback').length,
       },
       {
         id: 'hardcover',
         label: 'Hardcover',
         labelBn: 'হার্ডকভার (Hardcover)',
-        count: queryMatchedBooks.filter((b) => b.binding === 'hardcover').length,
+        count: formatFiltered.filter((b) => b.binding === 'hardcover').length,
       },
       {
         id: 'bundle',
         label: 'Combo Bundle',
         labelBn: 'কম্বো সেট (Book Bundle)',
-        count: queryMatchedBooks.filter((b) => b.binding === 'bundle').length,
+        count: formatFiltered.filter((b) => b.binding === 'bundle').length,
       },
     ];
 
-    // 5. Condition
+    // 5. Condition: All filters applied EXCEPT conditions
+    const conditionFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesAuthors(b, filterState.authors) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesDiscount(b, filterState.discountRange) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
     const conditionOptions = [
       {
         id: 'new',
         label: 'New Edition',
         labelBn: 'নতুন বই (New Edition)',
-        count: queryMatchedBooks.filter((b) => b.condition === 'new').length,
+        count: conditionFiltered.filter((b) => b.condition === 'new').length,
       },
       {
         id: 'used',
         label: 'Used / Second-hand',
         labelBn: 'ব্যবহৃত বই (Used)',
-        count: queryMatchedBooks.filter((b) => b.condition === 'used').length,
+        count: conditionFiltered.filter((b) => b.condition === 'used').length,
       },
     ];
 
-    // 5.1 Language (Moderate Bug 3 fix)
+    // 6. Language: All filters applied EXCEPT languages
+    const languageFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesAuthors(b, filterState.authors) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesDiscount(b, filterState.discountRange) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
     const languageOptions = [
       {
         id: 'bengali',
         label: 'Bengali',
         labelBn: 'বাংলা',
-        count: queryMatchedBooks.filter((b) => b.language === 'bengali').length,
+        count: languageFiltered.filter((b) => b.language === 'bengali').length,
       },
       {
         id: 'english',
         label: 'English',
         labelBn: 'ইংরেজি',
-        count: queryMatchedBooks.filter((b) => b.language === 'english').length,
+        count: languageFiltered.filter((b) => b.language === 'english').length,
       },
       {
         id: 'bilingual',
         label: 'Bilingual (EN+BN)',
         labelBn: 'দ্বিভাষিক',
-        count: queryMatchedBooks.filter((b) => b.language === 'bilingual').length,
+        count: languageFiltered.filter((b) => b.language === 'bilingual').length,
       },
       {
         id: 'hindi',
         label: 'Hindi',
         labelBn: 'হিন্দি',
-        count: queryMatchedBooks.filter((b) => b.language === 'hindi').length,
+        count: languageFiltered.filter((b) => b.language === 'hindi').length,
       },
     ];
 
-    // 6. Rating (Task 18)
+    // 7. Rating: All filters applied EXCEPT rating
+    const ratingFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesAuthors(b, filterState.authors) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesDiscount(b, filterState.discountRange) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
     const ratingOptions = [
       {
         id: '4',
         label: '4 Stars & Up',
         labelBn: '৪★ ও তদূর্ধ্ব',
-        count: queryMatchedBooks.filter((b) => b.rating >= 4.0).length,
+        count: ratingFiltered.filter((b) => b.rating >= 4.0).length,
       },
       {
         id: '3',
         label: '3 Stars & Up',
         labelBn: '৩★ ও তদূর্ধ্ব',
-        count: queryMatchedBooks.filter((b) => b.rating >= 3.0).length,
+        count: ratingFiltered.filter((b) => b.rating >= 3.0).length,
       },
       {
         id: '2',
         label: '2 Stars & Up',
         labelBn: '২★ ও তদূর্ধ্ব',
-        count: queryMatchedBooks.filter((b) => b.rating >= 2.0).length,
+        count: ratingFiltered.filter((b) => b.rating >= 2.0).length,
       },
       {
         id: '1',
         label: '1 Star & Up',
         labelBn: '১★ ও তদূর্ধ্ব',
-        count: queryMatchedBooks.filter((b) => b.rating >= 1.0).length,
+        count: ratingFiltered.filter((b) => b.rating >= 1.0).length,
       },
     ];
 
-    // 7. Price Brackets (Task 19)
+    // 8. Price Brackets: All filters applied EXCEPT price
+    const priceFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesAuthors(b, filterState.authors) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesDiscount(b, filterState.discountRange)
+    );
+
     const priceOptions = [
       {
         id: 'under-200',
         label: 'Under ₹200',
         labelBn: '₹২০০ এর নিচে',
-        count: queryMatchedBooks.filter((b) => b.price < 200).length,
+        count: priceFiltered.filter((b) => b.price < 200).length,
       },
       {
         id: '200-500',
         label: '₹200 – ₹500',
         labelBn: '₹২০০ – ₹৫০০',
-        count: queryMatchedBooks.filter((b) => b.price >= 200 && b.price <= 500).length,
+        count: priceFiltered.filter((b) => b.price >= 200 && b.price <= 500).length,
       },
       {
         id: '500-1000',
         label: '₹500 – ₹1,000',
         labelBn: '₹৫০০ – ₹১,০০০',
-        count: queryMatchedBooks.filter((b) => b.price >= 500 && b.price <= 1000).length,
+        count: priceFiltered.filter((b) => b.price >= 500 && b.price <= 1000).length,
       },
       {
         id: 'over-1000',
         label: 'Over ₹1,000',
         labelBn: '₹১,০০০ এর বেশি',
-        count: queryMatchedBooks.filter((b) => b.price > 1000).length,
+        count: priceFiltered.filter((b) => b.price > 1000).length,
       },
     ];
 
-    // 8. Discount Ranges (Task 17)
-    const getDiscountPct = (b: (typeof SEARCH_CATALOG)[0]) =>
+    // 9. Discount Ranges: All filters applied EXCEPT discount
+    const discountFiltered = baseQueryBooks.filter((b) =>
+      matchesCategory(b, filterState.category, filterState.subCategory) &&
+      matchesAuthors(b, filterState.authors) &&
+      matchesPublishers(b, filterState.publishers) &&
+      matchesFormats(b, filterState.formats) &&
+      matchesConditions(b, filterState.conditions) &&
+      matchesLanguages(b, filterState.languages) &&
+      matchesRating(b, filterState.minRating) &&
+      matchesPrice(b, filterState.minPrice, filterState.maxPrice)
+    );
+
+    const getDiscountPct = (b: BookProduct) =>
       Math.round(((b.mrp - b.price) / b.mrp) * 100);
 
     const discountOptions = [
@@ -1187,25 +712,25 @@ function SearchResultsContent() {
         id: '50',
         label: '50% Off or more',
         labelBn: '৫০% বা তার বেশি ছাড়',
-        count: queryMatchedBooks.filter((b) => getDiscountPct(b) >= 50).length,
+        count: discountFiltered.filter((b) => getDiscountPct(b) >= 50).length,
       },
       {
         id: '35',
         label: '35% Off or more',
         labelBn: '৩৫% বা তার বেশি ছাড়',
-        count: queryMatchedBooks.filter((b) => getDiscountPct(b) >= 35).length,
+        count: discountFiltered.filter((b) => getDiscountPct(b) >= 35).length,
       },
       {
         id: '25',
         label: '25% Off or more',
         labelBn: '২৫% বা তার বেশি ছাড়',
-        count: queryMatchedBooks.filter((b) => getDiscountPct(b) >= 25).length,
+        count: discountFiltered.filter((b) => getDiscountPct(b) >= 25).length,
       },
       {
         id: '10',
         label: '10% Off or more',
         labelBn: '১০% বা তার বেশি ছাড়',
-        count: queryMatchedBooks.filter((b) => getDiscountPct(b) >= 10).length,
+        count: discountFiltered.filter((b) => getDiscountPct(b) >= 10).length,
       },
     ];
 
@@ -1265,21 +790,12 @@ function SearchResultsContent() {
         options: conditionOptions,
       },
     ];
-  }, [queryParam]);
+  }, [queryParam, filterState]);
 
   // Dynamically compute Hierarchical Category Tree (Task 11)
   const hierarchyCategories = useMemo<HierarchyCategoryNode[]>(() => {
-    const qLower = queryParam.trim().toLowerCase();
-    const queryMatched = SEARCH_CATALOG.filter((book) => {
-      if (!qLower) return true;
-      const matchTitle = book.title.toLowerCase().includes(qLower);
-      const matchTitleBn = book.titleBn.toLowerCase().includes(qLower);
-      const matchAuthor = book.author.toLowerCase().includes(qLower);
-      const matchPublisher = book.publisher.toLowerCase().includes(qLower);
-      const matchCategory = book.categoryName.toLowerCase().includes(qLower);
-      const matchKeywords = book.keywords?.some((k) => k.toLowerCase().includes(qLower));
-      return matchTitle || matchTitleBn || matchAuthor || matchPublisher || matchCategory || matchKeywords;
-    });
+    const qTrimmed = queryParam.trim();
+    const queryMatched = SEARCH_CATALOG.filter((book) => matchesQuery(book, qTrimmed));
 
     const getCount = (catId: string, subId?: string) => {
       return queryMatched.filter((b) => {
@@ -1455,6 +971,46 @@ function SearchResultsContent() {
     ];
   }, [queryParam]);
 
+  // Task 48 & 49: Intelligent "Did You Mean" Suggestion on Zero Results
+  const didYouMean = useMemo(() => {
+    if (!queryParam || filteredBooks.length > 0) return null;
+    const qClean = queryParam.trim().toLowerCase();
+
+    const candidates = Array.from(
+      new Set([
+        ...POPULAR_SUGGESTION_TAGS,
+        ...SEARCH_CATALOG.map((b) => b.title),
+        ...SEARCH_CATALOG.map((b) => b.titleBn),
+        ...SEARCH_CATALOG.map((b) => b.author),
+        ...SEARCH_CATALOG.map((b) => b.publisher),
+      ])
+    );
+
+    let bestCandidate: string | null = null;
+    let minDistance = 999;
+
+    for (const cand of candidates) {
+      const candLower = cand.toLowerCase();
+      if (candLower.includes(qClean) || qClean.includes(candLower)) {
+        return cand;
+      }
+      const dist = levenshteinDistance(qClean, candLower);
+      if (dist < minDistance && dist <= Math.max(2, Math.floor(qClean.length * 0.4))) {
+        minDistance = dist;
+        bestCandidate = cand;
+      }
+    }
+
+    return bestCandidate;
+  }, [queryParam, filteredBooks.length]);
+
+  // Task 48: Popular Bestsellers recommendation for Zero-Result Recovery
+  const popularBestsellers = useMemo(() => {
+    return SEARCH_CATALOG.filter(
+      (b) => b.badge === 'BESTSELLER' || b.badge === 'MALDA TOP SELLER' || b.rating >= 4.8
+    ).slice(0, 4);
+  }, []);
+
   // Compute subCategoryLabel for active chips (Task 11)
   const subCategoryLabel = useMemo(() => {
     if (!filterState.subCategory) return undefined;
@@ -1493,9 +1049,11 @@ function SearchResultsContent() {
       minPrice: undefined,
       maxPrice: undefined,
       discountRange: undefined,
+      page: 1,
     };
+    setCurrentPage(1);
     setFilterState(defaultState);
-    syncFiltersToUrl(defaultState, sortBy, viewMode);
+    syncFiltersToUrl(defaultState, sortBy, viewMode, 1, true);
   };
 
   const handleRemoveFilterChip = (
@@ -1526,51 +1084,31 @@ function SearchResultsContent() {
     } else if (type === 'rating') {
       next.minRating = 0;
     }
-    handleFilterChange(next);
-  };
-
-  const handleAddToCart = (book: BookProduct) => {
-    const activeDeal = getActiveDealForBook(book.bookId);
-    addItem({
-      id: `cart-${book.id}`,
-      bookId: book.bookId,
-      title: book.title,
-      titleBn: book.titleBn,
-      author: book.author,
-      price: activeDeal ? activeDeal.dealPrice : book.price,
-      mrp: activeDeal ? activeDeal.mrp : book.mrp,
-      quantity: 1,
-      maxQuantity: activeDeal ? activeDeal.maxPerCustomer || 1 : undefined,
-    });
-
-    setAddedBooks((prev) => ({ ...prev, [book.id]: true }));
-    setTimeout(() => {
-      setAddedBooks((prev) => ({ ...prev, [book.id]: false }));
-    }, 1500);
+    handleFilterChange(next, true);
   };
 
   // Hook for Smart Auto Scroll-to-Top on filter or sort change (Task 6)
   useScrollToResults({
     containerId: 'search-results-main',
-    triggerDeps: [filterState, sortBy],
+    triggerDeps: [filterState, sortBy, currentPage],
+    enabled: !isMobileDrawerOpen,
   });
 
-  // Task 34: Dynamic Canonical URL & Noindex SEO Rule
-  // Prevents search engine indexing of infinite faceted filter permutations while allowing crawling (noindex, follow)
+  // Tasks 34, 38 & 39: Dynamic Canonical URL, Social OpenGraph Tags, and Dynamic SEO Title
   useEffect(() => {
     if (typeof document === 'undefined') return;
 
-    // 1. Dynamic Robots Meta Tag
+    // 1. Dynamic Robots Meta Tag (Tasks 34 & 39: Crawl budget protection)
     let robotsMeta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
     if (!robotsMeta) {
       robotsMeta = document.createElement('meta');
       robotsMeta.name = 'robots';
       document.head.appendChild(robotsMeta);
     }
-    const hasFacets = activeFiltersCount > 0 || sortBy !== 'relevance';
+    const hasFacets = activeFiltersCount > 0 || sortBy !== 'relevance' || currentPage > 1;
     robotsMeta.content = hasFacets ? 'noindex, follow' : 'index, follow';
 
-    // 2. Dynamic Canonical Link Tag
+    // 2. Dynamic Canonical Link Tag (Tasks 34 & 39)
     let canonicalLink = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!canonicalLink) {
       canonicalLink = document.createElement('link');
@@ -1585,7 +1123,42 @@ function SearchResultsContent() {
         ? `${origin}/search?q=${encodeURIComponent(queryParam)}`
         : `${origin}/search`;
     canonicalLink.href = cleanCanonical;
-  }, [activeFiltersCount, sortBy, filterState.category, queryParam]);
+
+    // 3. Dynamic Title & OpenGraph Preview Tags (Task 38)
+    const selectedCategoryOption = facetGroups[0]?.options.find((o) => o.id === filterState.category);
+    const categoryName = isBengali ? selectedCategoryOption?.labelBn : selectedCategoryOption?.label;
+
+    let pageTitle = 'বই অনুসন্ধান ও ফিল্টারিং ক্যাটালগ | M.M Book House Malda';
+    let ogDesc = 'মালদার বৃহত্তম অনলাইন বুক স্টোর - কলেজ, বিশ্ববিদ্যালয় (UGB), WBCS, প্রাথমিক টেট ও স্কুল সার্ভিসের বই সুলভ মূল্যে খুঁজুন ও কিনুন।';
+
+    if (queryParam) {
+      pageTitle = `"${queryParam}" - বই অনুসন্ধান ফলাফল (${toBengaliNumerals(filteredBooks.length)}টি বই) | M.M Book House`;
+      ogDesc = `"${queryParam}" সম্পর্কিত ${toBengaliNumerals(filteredBooks.length)}টি বইয়ের ক্যাটালগ। সরাসরি মালদা থেকে দ্রুত ডেলিভারি।`;
+    } else if (filterState.category && filterState.category !== 'all' && categoryName) {
+      pageTitle = `${categoryName} বইসমূহ (${toBengaliNumerals(filteredBooks.length)}টি বই) | M.M Book House`;
+      ogDesc = `${categoryName} ক্যাটাগরির সমস্ত সিলেবাস ভিত্তিক বই। বিশেষ ছাড় ও দ্রুত ডেলিভারি।`;
+    }
+
+    if (currentPage > 1) {
+      pageTitle += ` (পৃষ্ঠা ${toBengaliNumerals(currentPage)})`;
+    }
+
+    document.title = pageTitle;
+
+    const setMetaTag = (property: string, contentVal: string) => {
+      let meta = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('property', property);
+        document.head.appendChild(meta);
+      }
+      meta.content = contentVal;
+    };
+
+    setMetaTag('og:title', pageTitle);
+    setMetaTag('og:description', ogDesc);
+    setMetaTag('og:url', typeof window !== 'undefined' ? window.location.href : cleanCanonical);
+  }, [activeFiltersCount, sortBy, filterState.category, queryParam, filteredBooks.length, facetGroups, isBengali, currentPage]);
 
   // Task 35: Map filter category ID to permanent SEO category slug
   const getCategorySlug = (catId: string): string => {
@@ -1607,8 +1180,22 @@ function SearchResultsContent() {
     }
   };
 
+  const whatsAppText = encodeURIComponent(
+    `নমস্কার M.M Book House, আমি একটি বই খুঁজছি${queryParam ? `: "${queryParam}"` : ''}। এটি কি আপনার স্টোরে উপলব্ধ রয়েছে?`
+  );
+
   return (
     <>
+      {/* Task 49: Top Progress & Shimmer Bar during Transitions */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-50 h-1 bg-gradient-to-r from-amber-500 via-[#e77600] to-orange-500 transition-opacity duration-200 ${
+          isTransitioning ? 'opacity-100 animate-pulse' : 'opacity-0 pointer-events-none'
+        }`}
+        role="progressbar"
+        aria-hidden={!isTransitioning}
+      />
+      <div id="search-results-top" className="scroll-mt-20" />
+
       <SearchResultsLayout
         sidebar={
           <DesktopFacetSidebar
@@ -1631,7 +1218,8 @@ function SearchResultsContent() {
             }
             categorySlug={filterState.category !== 'all' ? getCategorySlug(filterState.category) : undefined}
             totalResults={filteredBooks.length}
-            displayedResults={filteredBooks.length}
+            page={currentPage}
+            pageSize={pageSize}
             sortBy={sortBy}
             onSortChange={handleSortChange}
             viewMode={viewMode}
@@ -1649,341 +1237,243 @@ function SearchResultsContent() {
             isBengali={isBengali}
           />
         }
+        pagination={
+          filteredBooks.length > 0 ? (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              pageSize={pageSize}
+              onPageSizeChange={handlePageSizeChange}
+              totalResults={filteredBooks.length}
+              isBengali={isBengali}
+            />
+          ) : undefined
+        }
       >
         {/* Main Products Display (Grid vs List View - Task 2) */}
-        {filteredBooks.length > 0 ? (
-          viewMode === 'grid' ? (
-            /* Adaptive Grid View (4 cols lg, 3 cols md, 2 cols mobile) */
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {filteredBooks.map((book) => {
-                const activeDeal = getActiveDealForBook(book.bookId);
-                const displayPrice = activeDeal ? activeDeal.dealPrice : book.price;
-                const displayMrp = activeDeal ? activeDeal.mrp : book.mrp;
-                const isAdded = addedBooks[book.id];
-                const inWish = isInWishlist(book.bookId);
-
-                return (
-                  <div
+        {isTransitioning ? (
+          <ProductGridSkeleton count={pageSize} viewMode={viewMode} />
+        ) : filteredBooks.length > 0 ? (
+          <div className="space-y-6">
+            {viewMode === 'grid' ? (
+              /* Adaptive Grid View (4 cols lg, 3 cols md, 2 cols mobile) */
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {pagedBooks.map((book) => (
+                  <ProductCard
                     key={book.id}
-                    className="bg-white rounded-xl border border-gray-200 hover:border-amber-400 hover:shadow-md transition-all duration-200 flex flex-col p-3 sm:p-4 relative group"
-                  >
-                    {/* Badge */}
-                    {activeDeal ? (
-                      <div className="absolute top-2.5 left-2.5 z-10">
-                        <AmazonDealBadge
-                          dealType={activeDeal.dealType}
-                          discountPercentage={activeDeal.discountPercentage}
-                        />
-                      </div>
-                    ) : book.badge ? (
-                      <span className="absolute top-2.5 left-2.5 z-10 bg-[#f08804] text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded shadow-2xs">
-                        {book.badge}
-                      </span>
-                    ) : null}
-
-                    {/* Wishlist Button */}
-                    <button
-                      type="button"
-                      onClick={() => toggleWishlistItem(book.bookId)}
-                      aria-label={inWish ? 'উইশলিস্ট থেকে মুছুন' : 'উইশলিস্টে যুক্ত করুন'}
-                      className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-full bg-white/90 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors shadow-2xs cursor-pointer"
-                    >
-                      <Heart
-                        className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${
-                          inWish ? 'text-red-500 fill-red-500' : ''
-                        }`}
-                      />
-                    </button>
-
-                    {/* Book Cover Placeholder Frame */}
-                    <div className="w-full h-36 sm:h-48 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg flex flex-col items-center justify-center p-3 mb-3 border border-amber-100/70 relative overflow-hidden group-hover:scale-[1.02] transition-transform">
-                      <BookOpen className="w-10 h-10 sm:w-12 sm:h-12 text-amber-600/70 mb-2" />
-                      <span className="text-[10px] sm:text-[11px] font-bold text-center text-gray-800 line-clamp-2 px-1">
-                        {isBengali ? book.titleBn : book.title}
-                      </span>
-                      <span className="text-[9px] text-gray-500 mt-1 truncate max-w-full">
-                        {book.publisher}
-                      </span>
-                    </div>
-
-                    {/* Category & Rating */}
-                    <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-gray-500 mb-1">
-                      <span className="font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded text-[9px] truncate max-w-[90px]">
-                        {book.categoryName}
-                      </span>
-                      <div className="flex items-center gap-1 text-amber-500 font-bold">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span>{book.rating}</span>
-                        <span className="text-gray-400 text-[10px]">
-                          ({isBengali ? toBengaliNumerals(book.reviewsCount) : book.reviewsCount})
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="font-bold text-gray-900 text-xs sm:text-sm leading-snug line-clamp-2 mb-1 group-hover:text-amber-700 transition-colors">
-                      {isBengali ? book.titleBn : book.title}
-                    </h3>
-
-                    {/* Author */}
-                    <p className="text-[11px] text-gray-500 mb-2 truncate">
-                      {isBengali ? 'লেখক: ' : 'By: '}
-                      <span className="font-medium text-gray-800">{book.author}</span>
-                    </p>
-
-                    {/* Pricing & Cart Block */}
-                    <div className="mt-auto pt-2 border-t border-gray-100">
-                      <div className="flex items-baseline gap-1.5 sm:gap-2">
-                        <span className={`text-sm sm:text-base font-black ${activeDeal ? 'text-[#cc0c39]' : 'text-gray-950'}`}>
-                          {formatINR(displayPrice, language)}
-                        </span>
-                        <span className="text-[11px] text-gray-400 line-through">
-                          {formatINR(displayMrp, language)}
-                        </span>
-                        <span className={`text-[10px] font-bold ${activeDeal ? 'text-[#cc0c39]' : 'text-green-700'}`}>
-                          {activeDeal ? `${toBengaliNumerals(activeDeal.discountPercentage)}% ছাড়` : `${book.discount} ছাড়`}
-                        </span>
-                      </div>
-
-                      {/* Fast Delivery Note */}
-                      <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-emerald-700 mt-1">
-                        <Zap className="w-3 h-3 text-amber-500 fill-amber-400 shrink-0" />
-                        <span className="truncate">
-                          {isBengali ? 'মালদা টাউনে দ্রুত ডেলিভারি' : 'Fast Malda Dispatch'}
-                        </span>
-                      </div>
-
-                      {/* 1-Click Add to Cart Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleAddToCart(book)}
-                        className={`w-full mt-2.5 py-1.5 sm:py-2 px-2 rounded-md font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          isAdded
-                            ? 'bg-green-600 text-white shadow-xs'
-                            : 'bg-[#ffd814] hover:bg-[#f7ca00] active:bg-[#f0b800] text-gray-950 border border-[#fcd200]'
-                        }`}
-                      >
-                        {isAdded ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>{isBengali ? 'যুক্ত হয়েছে' : 'Added'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingCart className="w-3.5 h-3.5" />
-                            <span>{isBengali ? 'কার্টে যোগ করুন' : 'Add to Cart'}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* Amazon-Style Horizontal List View (Task 2) */
-            <div className="flex flex-col gap-3.5">
-              {filteredBooks.map((book) => {
-                const activeDeal = getActiveDealForBook(book.bookId);
-                const displayPrice = activeDeal ? activeDeal.dealPrice : book.price;
-                const displayMrp = activeDeal ? activeDeal.mrp : book.mrp;
-                const displaySavings = displayMrp - displayPrice;
-                const isAdded = addedBooks[book.id];
-                const inWish = isInWishlist(book.bookId);
-
-                return (
-                  <div
+                    book={book}
+                    viewMode="grid"
+                    isBengali={isBengali}
+                  />
+                ))}
+              </div>
+            ) : (
+              /* Amazon-Style Horizontal List View (Task 2) */
+              <div className="flex flex-col gap-4">
+                {pagedBooks.map((book) => (
+                  <ProductCard
                     key={book.id}
-                    className="bg-white rounded-xl border border-gray-200 hover:border-amber-400 hover:shadow-md transition-all duration-200 p-4 flex flex-col sm:flex-row gap-4 items-start relative group"
-                  >
-                    {/* Left: Book Cover Image Frame */}
-                    <div className="w-full sm:w-40 h-44 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg shrink-0 flex flex-col items-center justify-center p-3 border border-amber-100 relative overflow-hidden group-hover:scale-[1.02] transition-transform">
-                      {activeDeal ? (
-                        <div className="absolute top-2 left-2 z-10">
-                          <AmazonDealBadge
-                            dealType={activeDeal.dealType}
-                            discountPercentage={activeDeal.discountPercentage}
-                          />
-                        </div>
-                      ) : book.badge ? (
-                        <span className="absolute top-2 left-2 z-10 bg-[#f08804] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-2xs">
-                          {book.badge}
-                        </span>
-                      ) : null}
-                      <BookOpen className="w-12 h-12 text-amber-600/70 mb-2" />
-                      <span className="text-[11px] font-bold text-center text-gray-800 line-clamp-2 px-1">
-                        {isBengali ? book.titleBn : book.title}
-                      </span>
-                    </div>
-
-                    {/* Middle: Details & Information */}
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded text-[10px]">
-                          {book.categoryName}
-                        </span>
-                        {book.binding && (
-                          <span className="text-[10px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                            {book.binding === 'paperback' ? 'Paperback' : 'Hardcover'}
-                          </span>
-                        )}
-                        {book.edition && (
-                          <span className="text-[10px] text-gray-500">
-                            • {book.edition}
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="font-bold text-gray-900 text-base leading-snug group-hover:text-amber-700 transition-colors">
-                        {isBengali ? book.titleBn : book.title}
-                      </h3>
-
-                      <p className="text-xs text-gray-600">
-                        {isBengali ? 'লেখক: ' : 'By: '}
-                        <span className="font-semibold text-gray-800">{book.author}</span>
-                        <span className="text-gray-400 mx-1.5">|</span>
-                        {isBengali ? 'প্রকাশনী: ' : 'Publisher: '}
-                        <span className="text-gray-700">{book.publisher}</span>
-                      </p>
-
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <div className="flex items-center gap-1 text-amber-500 font-bold text-xs">
-                          <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                          <span>{book.rating}</span>
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          ({isBengali ? toBengaliNumerals(book.reviewsCount) : book.reviewsCount} {isBengali ? 'গ্রাহক রিভিউ' : 'reviews'})
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-1 text-xs text-emerald-700 font-medium">
-                        <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                        <span>
-                          {isBengali
-                            ? 'মালদা টাউন ও উত্তরবঙ্গে দ্রুত হোম ডেলিভারি উপলব্ধ'
-                            : 'Fast home delivery available in Malda Town'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Right: Pricing Block & Action Button */}
-                    <div className="w-full sm:w-48 sm:border-l sm:border-gray-100 sm:pl-4 pt-3 sm:pt-0 flex flex-col justify-between self-stretch">
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className={`text-xl font-black ${activeDeal ? 'text-[#cc0c39]' : 'text-gray-950'}`}>
-                            {formatINR(displayPrice, language)}
-                          </span>
-                          <span className="text-xs text-gray-400 line-through">
-                            {formatINR(displayMrp, language)}
-                          </span>
-                        </div>
-                        <div className={`text-xs font-bold mt-0.5 ${activeDeal ? 'text-[#cc0c39]' : 'text-green-700'}`}>
-                          {activeDeal
-                            ? 'সীমিত সময়ের ফ্ল্যাশ ডিল মূল্য!'
-                            : `${book.discount} ছাড় (সঞ্চয়: ${formatINR(displaySavings, language)})`}
-                        </div>
-
-                        <div className="text-[11px] text-gray-500 mt-2 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                          <span>{isBengali ? 'কাউন্টারে স্টকে রয়েছে' : 'In Stock'}</span>
-                        </div>
-                      </div>
-
-                      <div className="pt-4 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleAddToCart(book)}
-                          className={`flex-1 py-2 px-3 rounded-md font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                            isAdded
-                              ? 'bg-green-600 text-white shadow-xs'
-                              : 'bg-[#ffd814] hover:bg-[#f7ca00] active:bg-[#f0b800] text-gray-950 border border-[#fcd200]'
-                          }`}
-                        >
-                          {isAdded ? (
-                            <>
-                              <Check className="w-3.5 h-3.5" />
-                              <span>{isBengali ? 'যুক্ত হয়েছে' : 'Added'}</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingCart className="w-3.5 h-3.5" />
-                              <span>{isBengali ? 'কার্টে যোগ করুন' : 'Add to Cart'}</span>
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => toggleWishlistItem(book.bookId)}
-                          aria-label={inWish ? 'উইশলিস্ট থেকে মুছুন' : 'উইশলিস্টে যুক্ত করুন'}
-                          className="p-2 rounded-md border border-gray-200 hover:bg-gray-50 text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                          <Heart
-                            className={`w-4 h-4 ${inWish ? 'text-red-500 fill-red-500' : ''}`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )
+                    book={book}
+                    viewMode="list"
+                    isBengali={isBengali}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
-          /* Empty / Zero-Result Recovery State */
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 sm:p-12 text-center max-w-xl mx-auto space-y-5 my-6">
-            <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-2xs">
-              <Package className="w-8 h-8" />
-            </div>
+          /* Task 48 & 49: Amazon-Style Zero-Result Recovery State */
+          <div className="space-y-8">
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-10 text-center max-w-xl mx-auto space-y-6 my-6 shadow-xs">
+              <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-2xs">
+                <Package className="w-8 h-8" />
+              </div>
 
-            <div className="space-y-2">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                {isBengali
-                  ? `নির্বাচিত ফিল্টারে কোনো বই খুঁজে পাওয়া যায়নি`
-                  : `No books matched the selected filters`}
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
-                {isBengali
-                  ? 'ফিল্টারের পরিধি শিথিল করুন অথবা সমস্ত ফিল্টার মুছে পুনরায় চেষ্টা করুন।'
-                  : 'Try relaxing your filter criteria or reset all filters to browse all catalog items.'}
-              </p>
-            </div>
-
-            {/* Reset Button */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleClearAllFilters}
-                className="px-6 py-2.5 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-lg shadow transition-colors cursor-pointer inline-flex items-center gap-2"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{isBengali ? 'সমস্ত ফিল্টার রিসেট করুন' : 'Reset All Filters'}</span>
-              </button>
-            </div>
-
-            {/* WhatsApp Book Request Option */}
-            <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-left bg-gray-50 p-3.5 rounded-xl">
-              <div>
-                <p className="text-xs font-bold text-gray-800">
-                  {isBengali ? 'কাঙ্ক্ষিত বইটি খুঁজে পাচ্ছেন না?' : 'Looking for a specific book?'}
-                </p>
-                <p className="text-[11px] text-gray-500">
+              <div className="space-y-2">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                   {isBengali
-                    ? 'আমাদের জানান, মালদা স্টোর থেকে অবিলম্বে সংগ্রহ করে দেব।'
-                    : 'WhatsApp our team, and we will source it for you immediately.'}
+                    ? `কোনো বই খুঁজে পাওয়া যায়নি`
+                    : `No books matched your criteria`}
+                </h2>
+                <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+                  {isBengali
+                    ? 'ফিল্টারের পরিধি শিথিল করুন অথবা অন্যান্য জনপ্রিয় বইসমূহ অন্বেষণ করুন।'
+                    : 'Try relaxing your filter criteria or explore popular books below.'}
                 </p>
               </div>
 
-              <a
-                href="https://wa.me/919800123456?text=Hello%20M.M%20Book%20House,%20I%20am%20looking%20for%20a%20book"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs transition-colors flex items-center gap-1.5"
-              >
-                <PhoneCall className="w-3.5 h-3.5" />
-                <span>{isBengali ? 'WhatsApp অনুরোধ' : 'WhatsApp Request'}</span>
-              </a>
+              {/* "Did You Mean" Suggestion Pill (Task 49) */}
+              {didYouMean && (
+                <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 sm:p-4 text-center">
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-amber-900 font-medium">
+                    <HelpCircle className="w-4 h-4 text-amber-600" />
+                    <span>{isBengali ? 'আপনি কি এটি খুঁজছেন?' : 'Did you mean:'}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push(`/search?q=${encodeURIComponent(didYouMean)}`);
+                    }}
+                    className="mt-1.5 inline-flex items-center gap-1 text-sm font-bold text-[#b12704] hover:underline cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>&ldquo;{didYouMean}&rdquo;</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Task 48: Relax Active Filter Chips individually */}
+              {activeFiltersCount > 0 && (
+                <div className="space-y-2 pt-2 border-t border-gray-100">
+                  <span className="text-xs font-semibold text-gray-700 block">
+                    {isBengali ? 'সক্রিয় ফিল্টার শিথিল করুন:' : 'Relax specific filters:'}
+                  </span>
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                    {filterState.category !== 'all' && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFilterChip('category')}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors cursor-pointer"
+                      >
+                        <span>{filterState.category}</span>
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                    {filterState.authors.map((author) => (
+                      <button
+                        key={author}
+                        type="button"
+                        onClick={() => handleRemoveFilterChip('author', author)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors cursor-pointer"
+                      >
+                        <span>{author}</span>
+                        <X className="w-3 h-3" />
+                      </button>
+                    ))}
+                    {filterState.publishers.map((pub) => (
+                      <button
+                        key={pub}
+                        type="button"
+                        onClick={() => handleRemoveFilterChip('publisher', pub)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors cursor-pointer"
+                      >
+                        <span>{pub}</span>
+                        <X className="w-3 h-3" />
+                      </button>
+                    ))}
+                    {(filterState.minPrice !== undefined || filterState.maxPrice !== undefined) && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFilterChip('price')}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors cursor-pointer"
+                      >
+                        <span>₹{filterState.minPrice ?? 0}–₹{filterState.maxPrice ?? '∞'}</span>
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                    {filterState.minRating > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFilterChip('rating')}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors cursor-pointer"
+                      >
+                        <span>{filterState.minRating}★+</span>
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleClearAllFilters}
+                      className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{isBengali ? 'সমস্ত ফিল্টার রিসেট করুন' : 'Reset All Filters'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Popular Searches Pills */}
+              <div className="space-y-2 pt-1 text-left">
+                <span className="text-xs font-bold text-gray-700 block text-center">
+                  {isBengali ? 'মালদার জনপ্রিয় অনুসন্ধান:' : 'Popular searches in Malda:'}
+                </span>
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  {POPULAR_SUGGESTION_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        router.push(`/search?q=${encodeURIComponent(tag)}`);
+                      }}
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-gray-100 hover:bg-amber-100 hover:text-amber-800 text-gray-700 transition-colors cursor-pointer"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Task 48: Direct WhatsApp Sourcing Option */}
+              <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-left bg-gray-50 p-3.5 rounded-xl">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">
+                    {isBengali ? 'নির্দিষ্ট বইটি স্টোরে চান?' : 'Looking for a specific book?'}
+                  </p>
+                  <p className="text-[11px] text-gray-500">
+                    {isBengali
+                      ? 'আমাদের জানান, মালদা কাউন্টার থেকে দ্রুত সংগ্রহ করে দেব।'
+                      : 'WhatsApp our team and we will source it for you immediately.'}
+                  </p>
+                </div>
+
+                <a
+                  href={`https://wa.me/919800123456?text=${whatsAppText}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>{isBengali ? 'WhatsApp অনুরোধ' : 'WhatsApp Request'}</span>
+                </a>
+              </div>
             </div>
+
+            {/* Task 48: Empathetic Recommendations below Zero-Results (Amazon-Standard Shelf) */}
+            {popularBestsellers.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    <span>
+                      {isBengali
+                        ? 'মালদা স্টোরের জনপ্রিয় বেস্টসেলার বইসমূহ'
+                        : 'Popular Bestsellers in Malda Store'}
+                    </span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleClearAllFilters}
+                    className="text-xs font-semibold text-amber-700 hover:text-amber-800 hover:underline cursor-pointer"
+                  >
+                    {isBengali ? 'সব বই দেখুন' : 'View all books'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                  {popularBestsellers.map((book) => (
+                    <ProductCard
+                      key={book.id}
+                      book={book}
+                      viewMode="grid"
+                      isBengali={isBengali}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </SearchResultsLayout>
@@ -2006,6 +1496,7 @@ function SearchResultsContent() {
         filterState={filterState}
         onFilterChange={handleFilterChange}
         matchingCount={filteredBooks.length}
+        computeMatchCount={computeMatchCount}
         onApply={() => setIsMobileDrawerOpen(false)}
         isBengali={isBengali}
       />
@@ -2018,15 +1509,13 @@ function SearchResultsContent() {
 
 function SearchLoadingSkeleton() {
   return (
-    <div className="max-w-[1500px] mx-auto px-4 py-6 min-h-[75vh] animate-pulse">
-      <div className="h-4 w-48 bg-gray-200 rounded mb-4" />
-      <div className="h-20 bg-gray-200 rounded-xl mb-6" />
+    <div className="max-w-[1500px] mx-auto px-4 py-6 min-h-[75vh]">
+      <div className="h-4 w-48 bg-gray-200 rounded mb-4 animate-pulse" />
+      <div className="h-16 bg-gray-200 rounded-xl mb-6 animate-pulse" />
       <div className="flex gap-6">
-        <div className="hidden md:block w-64 h-96 bg-gray-200 rounded-xl shrink-0" />
-        <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="h-72 bg-gray-200 rounded-xl" />
-          ))}
+        <div className="hidden md:block w-64 h-96 bg-gray-200 rounded-xl shrink-0 animate-pulse" />
+        <div className="flex-1">
+          <ProductGridSkeleton count={8} viewMode="grid" />
         </div>
       </div>
     </div>

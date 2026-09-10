@@ -6,16 +6,19 @@ interface UseScrollToResultsOptions {
   containerId?: string;
   headerOffset?: number;
   triggerDeps: any[];
+  enabled?: boolean;
 }
 
 /**
  * Smart auto scroll-to-top mechanism for faceted search & catalog
  * Module 6 - Task 6
+ * Mutes scrolling when mobile modal/drawer is open to avoid background layout shifts.
  */
 export function useScrollToResults({
   containerId = 'search-results-main',
-  headerOffset = 90,
+  headerOffset = 120,
   triggerDeps,
+  enabled = true,
 }: UseScrollToResultsOptions) {
   const isInitialMount = useRef(true);
 
@@ -25,6 +28,9 @@ export function useScrollToResults({
       isInitialMount.current = false;
       return;
     }
+
+    // Skip scroll if disabled (e.g. while mobile drawer is open)
+    if (!enabled) return;
 
     // When filters or sorting change, smoothly scroll to top of results container
     const element = document.getElementById(containerId);

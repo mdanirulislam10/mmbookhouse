@@ -78,6 +78,8 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
     setLocalMax(maxPrice !== undefined ? String(maxPrice) : '');
     if (maxPrice !== undefined) {
       setSliderVal(maxPrice);
+    } else {
+      setSliderVal(2000);
     }
   }, [minPrice, maxPrice]);
 
@@ -88,6 +90,8 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
 
     if (parsedMin !== undefined && parsedMax !== undefined && parsedMin > parsedMax) {
       // Swap if min > max
+      setLocalMin(String(parsedMax));
+      setLocalMax(String(parsedMin));
       onPriceChange(parsedMax, parsedMin);
     } else {
       onPriceChange(parsedMin, parsedMax);
@@ -106,15 +110,20 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
     }
   };
 
-  // BUG-M6-R3-1 Fix: Update local state while dragging, commit to URL/filter only on release
+  // Update local state while dragging, clamp to prevent inverted min > max
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     setSliderVal(val);
     setLocalMax(String(val));
+    if (minPrice !== undefined && minPrice > val) {
+      setLocalMin('');
+    }
   };
 
   const handleSliderCommit = (val: number) => {
-    onPriceChange(minPrice, val);
+    // If minPrice is greater than val, reset minPrice to prevent zero matches
+    const safeMin = minPrice !== undefined && minPrice > val ? undefined : minPrice;
+    onPriceChange(safeMin, val);
   };
 
   const isPresetActive = (preset: PricePreset) => {

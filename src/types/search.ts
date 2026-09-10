@@ -79,3 +79,13 @@ export interface TrendingSearchItem {
   badge?: string;
   isHot?: boolean;
 }
+
+export const POPULAR_MALDA_SEARCHES: TrendingSearchItem[] = [
+  { id: 't1', query: 'WBCS 2026 Manual', queryBn: 'WBCS ২০২৬ ম্যানুয়াল', category: 'wbcs-special', badge: '🔥 HOT', isHot: true },
+  { id: 't2', query: 'UGB Semester 4 History', queryBn: 'গৌড়বঙ্গ বিশ্ববিদ্যালয় ইতিহাস সেমিস্টার ৪', category: 'college-university', badge: '🔥 TRENDING', isHot: true },
+  { id: 't3', query: 'Primary TET 5000+ Guide', queryBn: 'প্রাথমিক টেট সহায়িকা', category: 'primary-tet-slst', badge: '🔥 POPULAR', isHot: true },
+  { id: 't4', query: 'WB Police Constable 2026', queryBn: 'ডাব্লুবি পুলিশ কনস্টেবল', category: 'competitive-exams', badge: 'NEW', isHot: false },
+  { id: 't5', query: 'UGB Sem 2 Bengali Guide', queryBn: 'গৌড়বঙ্গ সেমিস্টার ২ বাংলা সহায়িকা', category: 'college-university', badge: 'COLLEGE', isHot: false },
+  { id: 't6', query: 'Byomkesh Samagra Ananda', queryBn: 'ব্যোমকেশ সমগ্র আনন্দ পাবলিশার্স', category: 'bengali-literature', badge: 'CLASSIC', isHot: false },
+];
+

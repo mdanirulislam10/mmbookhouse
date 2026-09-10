@@ -13,6 +13,10 @@ interface SubjectHierarchyFilterProps {
   isBengali?: boolean;
 }
 
+/**
+ * Task 11: Hierarchical Subject & Exam Category Drilldown Tree
+ * Supports multi-level expansion, category toggling/deselection, and zero-match handling.
+ */
 export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
   categories,
   selectedCategory,
@@ -40,8 +44,26 @@ export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
     }));
   };
 
+  const handleParentClick = (catId: string) => {
+    // If currently selected without subcategory, clicking again resets to 'all'
+    if (selectedCategory === catId && !selectedSubCategory) {
+      onSelectCategory('all', undefined);
+    } else {
+      onSelectCategory(catId, undefined);
+    }
+  };
+
+  const handleSubClick = (catId: string, subId: string) => {
+    // If currently selected subcategory, clicking again deselects subcategory
+    if (selectedCategory === catId && selectedSubCategory === subId) {
+      onSelectCategory(catId, undefined);
+    } else {
+      onSelectCategory(catId, subId);
+    }
+  };
+
   return (
-    <div className="space-y-1 text-xs select-none">
+    <div className="space-y-1 text-xs select-none" role="tree" aria-label={isBengali ? 'বিষয় ও পরীক্ষার তালিকা' : 'Subjects and exams list'}>
       {/* "All Categories / Subjects" Root Option */}
       <button
         type="button"
@@ -57,7 +79,7 @@ export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
           <span>{isBengali ? 'সকল বিষয় ও পরীক্ষা' : 'All Subjects & Exams'}</span>
         </div>
         {(selectedCategory === 'all' || !selectedCategory) && (
-          <Check className="w-3.5 h-3.5 text-amber-700" />
+          <Check className="w-3.5 h-3.5 text-amber-700 stroke-[2.5]" />
         )}
       </button>
 
@@ -72,8 +94,7 @@ export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
             <div key={cat.id} className="space-y-0.5">
               {/* Parent Category Row */}
               <div
-                onClick={() => onSelectCategory(cat.id, undefined)}
-                className={`group flex items-center justify-between py-1.5 px-2 rounded-md transition-colors cursor-pointer ${
+                className={`group flex items-center justify-between py-1.5 px-2 rounded-md transition-colors ${
                   isCatSelected && !selectedSubCategory
                     ? 'bg-amber-50 text-amber-900 font-bold border border-amber-200/90'
                     : isCatSelected
@@ -81,13 +102,13 @@ export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
                     : 'text-gray-700 hover:bg-gray-100/70 hover:text-gray-950'
                 }`}
               >
-                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <div className="flex items-center gap-1 min-w-0 flex-1">
                   {hasSub ? (
                     <button
                       type="button"
                       onClick={(e) => toggleExpand(e, cat.id)}
-                      aria-label="Expand category sub-levels"
-                      className="p-0.5 rounded text-gray-400 hover:text-amber-700 hover:bg-amber-100/50 transition-colors"
+                      aria-label={isExpanded ? 'সাব-ক্যাটাগরি বন্ধ করুন' : 'সাব-ক্যাটাগরি খুলুন'}
+                      className="p-1 rounded text-gray-400 hover:text-amber-700 hover:bg-amber-100/50 transition-colors cursor-pointer shrink-0"
                     >
                       {isExpanded ? (
                         <ChevronDown className="w-3.5 h-3.5" />
@@ -96,12 +117,16 @@ export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
                       )}
                     </button>
                   ) : (
-                    <span className="w-3.5" />
+                    <span className="w-4" />
                   )}
 
-                  <span className="truncate">
+                  <button
+                    type="button"
+                    onClick={() => handleParentClick(cat.id)}
+                    className="truncate text-left flex-1 hover:underline cursor-pointer"
+                  >
                     {isBengali ? cat.labelBn : cat.label}
-                  </span>
+                  </button>
                 </div>
 
                 <span className="text-[10px] text-gray-400 font-normal shrink-0 pl-1.5">
@@ -120,7 +145,7 @@ export const SubjectHierarchyFilter: React.FC<SubjectHierarchyFilterProps> = ({
                       <button
                         key={sub.id}
                         type="button"
-                        onClick={() => onSelectCategory(cat.id, sub.id)}
+                        onClick={() => handleSubClick(cat.id, sub.id)}
                         className={`w-full flex items-center justify-between py-1 px-2 rounded text-left transition-colors cursor-pointer ${
                           isSubSelected
                             ? 'bg-amber-600 text-white font-bold shadow-2xs'

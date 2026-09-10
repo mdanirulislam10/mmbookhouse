@@ -12,6 +12,10 @@ interface BookConditionFilterProps {
   isBengali?: boolean;
 }
 
+/**
+ * Task 15: Book Condition & Edition Filter with full ARIA keyboard accessibility
+ * Supports New vs Used books with verification badges and zero-trap protection.
+ */
 export const BookConditionFilter: React.FC<BookConditionFilterProps> = ({
   options,
   selectedConditions,
@@ -48,7 +52,7 @@ export const BookConditionFilter: React.FC<BookConditionFilterProps> = ({
   };
 
   return (
-    <div className="space-y-2 select-none">
+    <div className="space-y-2 select-none" role="group" aria-label={isBengali ? 'বইয়ের অবস্থা ফিল্টার' : 'Book condition filter'}>
       {options.map((option) => {
         const isChecked = selectedConditions.includes(option.id);
         const meta = conditionMeta[option.id] || {
@@ -60,18 +64,27 @@ export const BookConditionFilter: React.FC<BookConditionFilterProps> = ({
         };
         const IconComponent = meta.icon;
         const isUsed = option.id === 'used';
-        const disabled = option.disabled || option.count === 0;
+        const disabled = option.disabled || (option.count === 0 && !isChecked);
 
         return (
           <div
             key={option.id}
+            role="checkbox"
+            aria-checked={isChecked}
+            tabIndex={disabled ? -1 : 0}
             onClick={() => !disabled && onToggleCondition(option.id)}
-            className={`relative p-2.5 rounded-lg border transition-all cursor-pointer ${
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                if (!disabled) onToggleCondition(option.id);
+              }
+            }}
+            className={`relative p-2.5 rounded-lg border transition-all select-none focus:outline-none focus:ring-2 focus:ring-amber-500 ${
               disabled
                 ? 'opacity-35 cursor-not-allowed bg-gray-50 border-gray-100'
                 : isChecked
-                ? 'bg-amber-50/90 border-amber-600 shadow-2xs'
-                : 'border-gray-200/90 hover:border-amber-300 hover:bg-gray-50/70'
+                ? 'bg-amber-50/90 border-amber-600 shadow-2xs cursor-pointer'
+                : 'border-gray-200/90 hover:border-amber-300 hover:bg-gray-50/70 cursor-pointer'
             }`}
           >
             {/* Top row: Icon, Name, and Highlights Badge */}
@@ -107,7 +120,7 @@ export const BookConditionFilter: React.FC<BookConditionFilterProps> = ({
                 )}
               </div>
 
-              {/* Selection Checkbox */}
+              {/* Selection Checkbox indicator */}
               <div
                 className={`w-3.5 h-3.5 rounded shrink-0 flex items-center justify-center border transition-all ${
                   isChecked

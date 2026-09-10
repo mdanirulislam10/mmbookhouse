@@ -25,6 +25,7 @@ export interface FilterState {
   minPrice?: number;
   maxPrice?: number;
   discountRange?: number;
+  page?: number;
 }
 
 export interface SubCategoryNode {
@@ -58,9 +59,18 @@ export interface FacetGroup {
   options: FacetOption[];
 }
 
+export interface BookVariantOption {
+  format: 'paperback' | 'hardcover' | 'bundle';
+  formatBn: string;
+  price: number;
+  mrp: number;
+  stockQuantity: number;
+}
+
 export interface BookProduct {
   id: string;
   bookId: string;
+  slug?: string;
   title: string;
   titleBn: string;
   author: string;
@@ -76,6 +86,7 @@ export interface BookProduct {
   rating: number;
   reviewsCount: number;
   inStock: boolean;
+  stockQuantity?: number;
   edition: string;
   createdAt?: string;
   binding?: 'paperback' | 'hardcover' | 'bundle';
@@ -83,4 +94,6 @@ export interface BookProduct {
   language?: 'bengali' | 'english' | 'bilingual' | 'hindi';
   coverImage?: string;
   keywords?: string[];
+  variants?: BookVariantOption[];
+  isMaldaPrime?: boolean;
 }
