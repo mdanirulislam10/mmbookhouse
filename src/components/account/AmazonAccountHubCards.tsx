@@ -110,9 +110,8 @@ export const AmazonAccountHubCards: React.FC<AmazonAccountHubCardsProps> = ({
         </button>
 
         {/* Card 3: Saved Addresses */}
-        <button
-          type="button"
-          onClick={() => onSelectTab('profile')}
+        <Link
+          href="/account/addresses"
           className="bg-white rounded-2xl border border-gray-200/90 p-5 hover:border-rose-400 hover:shadow-lg transition-all duration-200 flex flex-col justify-between group cursor-pointer text-left relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-rose-50 rounded-bl-full -z-0 pointer-events-none group-hover:scale-110 transition-transform" />
@@ -133,10 +132,10 @@ export const AmazonAccountHubCards: React.FC<AmazonAccountHubCardsProps> = ({
             </p>
           </div>
           <div className="pt-4 mt-2 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-rose-600 relative z-10 w-full">
-            <span>ঠিকানা ও প্রোফাইল পরিবর্তন</span>
+            <span>ঠিকানা বুক পরিচালনা করুন</span>
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </div>
-        </button>
+        </Link>
 
         {/* Card 4: Exam Preferences & Targets */}
         <button
