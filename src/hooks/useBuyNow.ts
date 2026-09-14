@@ -2,10 +2,10 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { DetailedBookProduct, VariantFormat, VariantCondition, GiftOptionsState, ExpressBuyNowPayload } from '@/types/pdp';
+import { DetailedBookProduct, VariantFormat, VariantCondition, GiftOptionsState } from '@/types/pdp';
 import { BookProduct } from '@/types/catalog-filter';
-import { useCartStore } from '@/hooks/useCartStore';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { createBuyNowSession, BuyNowSessionPayload } from '@/lib/services/buyNowService';
 
 export interface UseBuyNowOptions {
   book: DetailedBookProduct | BookProduct;
@@ -15,16 +15,21 @@ export interface UseBuyNowOptions {
   customPrice?: number;
   customMrp?: number;
   giftOptions?: GiftOptionsState;
-  onSuccess?: (payload: ExpressBuyNowPayload) => void;
+  onSuccess?: (payload: BuyNowSessionPayload) => void;
+  onRequireAuth?: () => void; // For inline OTP slide-over drawer (Item 14)
 }
 
-export const EXPRESS_CHECKOUT_STORAGE_KEY = 'mm_express_checkout_payload';
-
+/**
+ * Module 12 - Task 3: 1-Click Buy Now Hook
+ * 
+ * Features:
+ * - Isolated Purchase Session (Item 12): Bypasses regular cart and leaves cart items untouched.
+ * - Fast-Track Routing: Navigates straight to `/checkout?mode=buy_now` (Item 11, 19).
+ * - Inline Auth Drawer Integration (Item 14): Opens inline drawer if guest user.
+ */
 export function useBuyNow() {
   const router = useRouter();
   const { isLoggedIn } = useAuthSession();
-  const addItem = useCartStore((state) => state.addItem);
-  const triggerBounce = useCartStore((state) => state.triggerBounce);
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,62 +44,37 @@ export function useBuyNow() {
       customMrp,
       giftOptions,
       onSuccess,
+      onRequireAuth,
     }: UseBuyNowOptions) => {
       setIsProcessing(true);
       setError(null);
 
       try {
-        const finalPrice = customPrice ?? book.price;
-        const finalMrp = customMrp ?? book.mrp;
-        const bookId = book.bookId || book.id;
-
-        const payload: ExpressBuyNowPayload = {
-          bookId,
-          title: book.title,
-          titleBn: book.titleBn,
-          author: book.author,
-          price: finalPrice,
-          mrp: finalMrp,
-          quantity: Math.max(1, quantity),
-          coverImage: book.coverImage,
-          variantFormat: format,
-          condition: condition,
-          giftOptions,
-        };
-
-        // 1. Persist express payload in storage for direct checkout recovery
-        if (typeof window !== 'undefined') {
-          try {
-            sessionStorage.setItem(EXPRESS_CHECKOUT_STORAGE_KEY, JSON.stringify(payload));
-            localStorage.setItem(EXPRESS_CHECKOUT_STORAGE_KEY, JSON.stringify(payload));
-          } catch {
-            // Storage quota or restriction fallback
-          }
-        }
-
-        // 2. Sync into cart store with exact quantity
-        addItem({
-          id: `express-${bookId}-${format || 'default'}-${condition || 'new'}`,
-          bookId,
-          title: book.title,
-          titleBn: book.titleBn,
-          author: book.author,
-          price: finalPrice,
-          mrp: finalMrp,
+        // 1. Create isolated session in storage (preserving regular cart items untouched)
+        const sessionPayload = createBuyNowSession({
+          book,
           quantity,
-          coverImage: book.coverImage,
+          format,
+          condition,
+          customPrice,
+          customMrp,
+          giftOptions,
         });
 
-        triggerBounce();
-
         if (onSuccess) {
-          onSuccess(payload);
+          onSuccess(sessionPayload);
         }
 
-        // 3. Navigate straight to express checkout or login if unauthenticated
+        // 2. If user is not logged in and caller provides inline auth trigger, invoke it (Item 14)
+        if (!isLoggedIn && onRequireAuth) {
+          onRequireAuth();
+          return;
+        }
+
+        // 3. Fast-Track navigation directly to `/checkout?mode=buy_now` (Item 11, 13, 19)
         const targetUrl = isLoggedIn
-          ? `/orders?express=true&bookId=${encodeURIComponent(bookId)}`
-          : `/login?redirect=${encodeURIComponent(`/orders?express=true&bookId=${bookId}`)}`;
+          ? '/checkout?mode=buy_now'
+          : `/login?redirect=${encodeURIComponent('/checkout?mode=buy_now')}`;
 
         router.push(targetUrl);
       } catch (err: any) {
@@ -104,7 +84,7 @@ export function useBuyNow() {
         setIsProcessing(false);
       }
     },
-    [addItem, triggerBounce, router, isLoggedIn]
+    [router, isLoggedIn]
   );
 
   const clearError = useCallback(() => setError(null), []);

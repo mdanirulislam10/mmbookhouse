@@ -32,3 +32,11 @@ next-env.d.ts
 
 # supabase temp
 supabase/.temp/
+
+# temporary and test logs
+.next.stale/
+.cdp-profile/
+_cdp-verify.mjs
+verify*.log
+verify*.err
+

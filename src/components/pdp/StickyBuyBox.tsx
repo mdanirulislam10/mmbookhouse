@@ -20,6 +20,7 @@ import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCartStore } from '@/hooks/useCartStore';
 import { useBuyNow } from '@/hooks/useBuyNow';
+import { InlineCheckoutAuthDrawer } from '@/components/auth/InlineCheckoutAuthDrawer';
 import { getStockUrgencyState } from '@/lib/services/pdpMetricsService';
 import { PincodeDeliveryWidget } from './PincodeDeliveryWidget';
 import { GiftOptionsWidget } from './GiftOptionsWidget';
@@ -47,6 +48,7 @@ export const StickyBuyBox: React.FC<StickyBuyBoxProps> = ({
   const [isAdded, setIsAdded] = useState(false);
   const [giftOptions, setGiftOptions] = useState<GiftOptionsState | undefined>(undefined);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [showAuthDrawer, setShowAuthDrawer] = useState(false);
 
   // Variant resolution
   const variant = book.variants?.find((v) => v.format === selectedFormat);
@@ -112,6 +114,7 @@ export const StickyBuyBox: React.FC<StickyBuyBoxProps> = ({
       customPrice: currentPrice,
       customMrp: currentMrp,
       giftOptions,
+      onRequireAuth: () => setShowAuthDrawer(true),
     });
   };
 
@@ -358,6 +361,16 @@ export const StickyBuyBox: React.FC<StickyBuyBoxProps> = ({
         book={book}
         isOpen={showStockModal}
         onClose={() => setShowStockModal(false)}
+      />
+
+      {/* Module 12 Item 14: Inline OTP Authentication Drawer for Guest Buy Now */}
+      <InlineCheckoutAuthDrawer
+        isOpen={showAuthDrawer}
+        onClose={() => setShowAuthDrawer(false)}
+        onAuthSuccess={() => {
+          setShowAuthDrawer(false);
+          window.location.href = '/checkout?mode=buy_now';
+        }}
       />
     </aside>
   );

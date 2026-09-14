@@ -19,6 +19,7 @@ import { HelplineQuickContact } from './HelplineQuickContact';
 import { WishlistHeaderButton } from './WishlistHeaderButton';
 import { OfflineStatusIndicator } from './OfflineStatusIndicator';
 import { FestiveRibbon } from './FestiveRibbon';
+import { usePathname } from 'next/navigation';
 import { useDeliveryLocation } from '@/hooks/useDeliveryLocation';
 import { useCategoryDrawer } from '@/hooks/useCategoryDrawer';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -34,6 +35,11 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onSearch, onOpenCategoriesDrawer }) => {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/checkout')) {
+    return null;
+  }
+
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const { location, updatePincode, setFulfillmentMode } = useDeliveryLocation();
@@ -64,13 +70,13 @@ export const Header: React.FC<HeaderProps> = ({ onSearch, onOpenCategoriesDrawer
       <OfflineStatusIndicator />
 
       {/* 1. Main Header Container (Task 31: Compact Mode on Directional Scroll) */}
-      <div className={`max-w-[1500px] mx-auto px-2 sm:px-4 flex flex-col gap-1.5 text-white transition-all duration-200 ${
+      <div className={`w-full min-w-0 max-w-[1500px] mx-auto px-2 sm:px-4 flex flex-col gap-1.5 text-white transition-all duration-200 ${
         isCompactMode ? 'py-1 sm:py-1' : 'pt-1.5 pb-1'
       }`}>
         {/* Row 1: Primary Navigation Bar (Task 24 & Task 30 Zero-CLS) */}
-        <div className="flex items-center justify-between gap-2 sm:gap-4 min-h-[50px] sm:min-h-[56px]">
+        <div className="w-full min-w-0 flex items-center justify-between gap-2 sm:gap-4 min-h-[50px] sm:min-h-[56px]">
           {/* Left: Mobile Drawer Trigger + Brand Logo & Desktop Delivery Location */}
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
             {/* Task 24, 43 & 44: Mobile Hamburger Menu Trigger (Min 44px Touch Target with Full A11y) */}
             <button
               id="category-hamburger-trigger-mobile"
@@ -167,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({ onSearch, onOpenCategoriesDrawer
             : 'max-h-12 opacity-100'
         }`}
       >
-        <div className="flex items-center gap-1.5 truncate">
+        <div className="flex items-center gap-1.5 min-w-0 truncate">
           {isPickup ? (
             <Store className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           ) : (

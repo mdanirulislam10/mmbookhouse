@@ -1,14 +1,12 @@
 import { MetadataRoute } from 'next';
 
 /**
- * Task 39: Sitemap Crawl Optimization Rules (সাইটম্যাপ ক্রল অপ্টিমাইজেশন রুল)
- *
- * Excludes infinite faceted search parameter permutations (?q=..., ?authors=...)
- * to prevent burning Google Search Engine crawl budget.
- * Contains only canonical base routes and permanent SSR/ISR category landing pages.
+ * Task 39 & Module 20: Sitemap Crawl Optimization & Legal Policy Indexing
+ * Contains canonical landing routes, permanent category landing pages,
+ * and mandatory legal policy routes for Google Search Console & Google Merchant Center.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://mmbookhouse.com';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://mmbookhouse.in';
   const now = new Date();
 
   // 1. Primary Canonical Landing Pages
@@ -54,6 +52,37 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6,
+    },
+    // Legal & Policy Pages (Module 20: Item 46)
+    {
+      url: `${baseUrl}/support`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/terms`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/shipping-policy`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/refund-policy`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.4,
     },
   ];
 

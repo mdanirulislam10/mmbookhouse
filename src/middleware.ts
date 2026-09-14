@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { applySecurityHeadersToResponse } from '@/lib/security/securityHeaders';
 
 /**
- * Task 45: Next.js Middleware Protection Engine
+ * Task 45 & Module 20: Next.js Middleware Protection & Security Hardening
  * Protects authenticated customer routes (/account, /checkout, /orders)
- * and seamlessly redirects unauthenticated visitors to /login with target callback.
+ * and attaches banking-grade HTTP security headers (CSP, HSTS, X-Frame-Options: DENY).
  */
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -30,7 +31,8 @@ export function middleware(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     const destination = pathname + search;
     loginUrl.searchParams.set('redirect', destination);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    return applySecurityHeadersToResponse(redirectResponse);
   }
 
   // Guard: If already authenticated and accessing /login, redirect back to destination or /account
@@ -40,10 +42,12 @@ export function middleware(request: NextRequest) {
       redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
         ? redirectParam
         : '/account';
-    return NextResponse.redirect(new URL(destination, request.url));
+    const redirectResponse = NextResponse.redirect(new URL(destination, request.url));
+    return applySecurityHeadersToResponse(redirectResponse);
   }
 
-  return NextResponse.next();
+  const nextResponse = NextResponse.next();
+  return applySecurityHeadersToResponse(nextResponse);
 }
 
 export const config = {

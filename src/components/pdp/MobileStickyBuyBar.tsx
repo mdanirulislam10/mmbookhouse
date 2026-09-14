@@ -8,6 +8,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useCartStore } from '@/hooks/useCartStore';
 import { useBuyNow } from '@/hooks/useBuyNow';
 import { StockNotifyModal } from './StockNotifyModal';
+import { InlineCheckoutAuthDrawer } from '@/components/auth/InlineCheckoutAuthDrawer';
 
 interface MobileStickyBuyBarProps {
   book: DetailedBookProduct;
@@ -26,6 +27,7 @@ export const MobileStickyBuyBar: React.FC<MobileStickyBuyBarProps> = ({
 
   const [isAdded, setIsAdded] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [showAuthDrawer, setShowAuthDrawer] = useState(false);
 
   const variant = book.variants?.find((v) => v.format === selectedFormat);
   const currentPrice = isUsedSelected
@@ -76,6 +78,7 @@ export const MobileStickyBuyBar: React.FC<MobileStickyBuyBarProps> = ({
       condition: isUsedSelected ? 'used' : 'new',
       customPrice: currentPrice,
       customMrp: currentMrp,
+      onRequireAuth: () => setShowAuthDrawer(true),
     });
   };
 
@@ -155,6 +158,16 @@ export const MobileStickyBuyBar: React.FC<MobileStickyBuyBarProps> = ({
         book={book}
         isOpen={showStockModal}
         onClose={() => setShowStockModal(false)}
+      />
+
+      {/* Module 12 Item 14: Mobile Inline OTP Auth Drawer for Guest Buy Now */}
+      <InlineCheckoutAuthDrawer
+        isOpen={showAuthDrawer}
+        onClose={() => setShowAuthDrawer(false)}
+        onAuthSuccess={() => {
+          setShowAuthDrawer(false);
+          window.location.href = '/checkout?mode=buy_now';
+        }}
       />
     </>
   );

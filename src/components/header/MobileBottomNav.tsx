@@ -21,6 +21,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   wishlistCount: propWishlistCount,
 }) => {
   const pathname = usePathname();
+  if (pathname?.startsWith('/checkout')) {
+    return null;
+  }
   const openDrawer = useCategoryDrawer((state) => state.openDrawer);
   const { count: liveWishlistCount } = useWishlist();
   const { language, isBengali } = useLanguage();

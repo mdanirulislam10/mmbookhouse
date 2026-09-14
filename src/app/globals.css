@@ -27,27 +27,49 @@ body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /*
+   * Mobile Horizontal-Overflow Safety Net:
+   * `clip` (instead of `hidden`) is intentional — it stops the whole page from
+   * being panned left/right when a single element is too wide, but it does NOT
+   * create a scroll container, so the sticky header (`position: sticky`) and the
+   * fixed drawers keep working exactly as before.
+   */
+  overflow-x: clip;
 }
 
-/* Amazon Signature Hover Box Effect */
-.amazon-nav-box {
-  padding: 6px 9px;
-  border-radius: 2px;
-  border: 1px solid transparent;
-  transition: border-color 0.15s ease-in-out;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
+/*
+ * Amazon Signature Hover Box Effect
+ *
+ * IMPORTANT: this rule MUST live inside `@layer components` (and not as a plain
+ * top-level rule). A plain rule is emitted AFTER Tailwind's `@tailwind utilities`
+ * output and has the same specificity as a utility class, so its `display: flex`
+ * used to override Tailwind's responsive display utilities such as `hidden`,
+ * `md:flex`, `lg:flex` and `xl:flex`. That made mobile-hidden header elements
+ * (DeliveryLocation, ReturnsOrdersLink, WishlistHeaderButton, ...) stay visible,
+ * which blew the mobile header up to ~573px and made the whole page pan
+ * horizontally on phones. Keeping it inside the components layer lets every
+ * Tailwind utility win, which is the intended behaviour.
+ */
+@layer components {
+  .amazon-nav-box {
+    padding: 6px 9px;
+    border-radius: 2px;
+    border: 1px solid transparent;
+    transition: border-color 0.15s ease-in-out;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
 
-.amazon-nav-box:hover {
-  border-color: #ffffff;
-}
+  .amazon-nav-box:hover {
+    border-color: #ffffff;
+  }
 
-/* Focus outline for accessibility */
-.amazon-nav-box:focus-visible {
-  outline: 2px solid #febd69;
-  outline-offset: 1px;
+  /* Focus outline for accessibility */
+  .amazon-nav-box:focus-visible {
+    outline: 2px solid #febd69;
+    outline-offset: 1px;
+  }
 }
 
 /* Utility to hide scrollbar while keeping scroll functionality */

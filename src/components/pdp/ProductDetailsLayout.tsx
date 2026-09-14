@@ -14,6 +14,7 @@ import { ProductRatingSummary } from './ProductRatingSummary';
 import { useCart } from '@/hooks/useCartStore';
 import { useBuyNow } from '@/hooks/useBuyNow';
 import { PincodeDeliveryWidget } from './PincodeDeliveryWidget';
+import { InlineCheckoutAuthDrawer } from '@/components/auth/InlineCheckoutAuthDrawer';
 import {
   ShoppingCart,
   Zap,
@@ -68,6 +69,7 @@ export const ProductDetailsLayout: React.FC<ProductDetailsLayoutProps> = ({
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isGiftWrap, setIsGiftWrap] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [showAuthDrawer, setShowAuthDrawer] = useState(false);
 
   // Build multi-angle asset list using Task 6 asset pipeline
   const angleAssets = buildBookAngleAssets(book);
@@ -346,6 +348,7 @@ export const ProductDetailsLayout: React.FC<ProductDetailsLayoutProps> = ({
                     executeBuyNow({
                       book,
                       quantity: selectedQuantity,
+                      onRequireAuth: () => setShowAuthDrawer(true),
                     })
                   }
                   className="w-full py-2.5 px-4 rounded-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold text-sm shadow-xs transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
@@ -406,6 +409,16 @@ export const ProductDetailsLayout: React.FC<ProductDetailsLayoutProps> = ({
 
       {/* Bottom Sections Slot (Frequently Bought Together, Reviews, Author Bio, TOC, etc.) */}
       {bottomSectionsSlot && <div className="mt-12">{bottomSectionsSlot}</div>}
+
+      {/* Module 12 Item 14: PDP Inline OTP Auth Drawer for Guest Buy Now */}
+      <InlineCheckoutAuthDrawer
+        isOpen={showAuthDrawer}
+        onClose={() => setShowAuthDrawer(false)}
+        onAuthSuccess={() => {
+          setShowAuthDrawer(false);
+          window.location.href = '/checkout?mode=buy_now';
+        }}
+      />
     </div>
   );
 };

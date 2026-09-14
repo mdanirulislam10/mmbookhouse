@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { formatINR, toBengaliNumerals } from '@/lib/utils/currency';
 import { useLanguage } from '@/hooks/useLanguage';
 import { ShoppingCart, Zap, X, Maximize2, Minimize2, CheckCircle2 } from 'lucide-react';
 import { DetailedBookProduct } from '@/types/pdp';
 import { useCartStore } from '@/hooks/useCartStore';
 import { useBuyNow } from '@/hooks/useBuyNow';
+import { InlineCheckoutAuthDrawer } from '@/components/auth/InlineCheckoutAuthDrawer';
 
 interface ReaderStickyBuyBarProps {
   book: Partial<DetailedBookProduct>;
@@ -45,6 +46,7 @@ export const ReaderStickyBuyBar: React.FC<ReaderStickyBuyBarProps> = ({
 
   const { addItem, triggerBounce } = useCartStore();
   const { executeBuyNow } = useBuyNow();
+  const [showAuthDrawer, setShowAuthDrawer] = useState(false);
 
   const handleBuyNow = () => {
     if (onBuyNow) {
@@ -55,6 +57,7 @@ export const ReaderStickyBuyBar: React.FC<ReaderStickyBuyBarProps> = ({
         quantity: 1,
         customPrice: price,
         customMrp: mrp,
+        onRequireAuth: () => setShowAuthDrawer(true),
       });
     }
   };
@@ -80,7 +83,8 @@ export const ReaderStickyBuyBar: React.FC<ReaderStickyBuyBarProps> = ({
   };
 
   return (
-    <header
+    <>
+      <header
       className={`sticky top-0 left-0 right-0 z-40 bg-neutral-900/95 backdrop-blur-md text-white border-b border-neutral-800 px-3 sm:px-5 py-2.5 shadow-md flex items-center justify-between gap-3 font-sans ${className}`}
       aria-label="Look Inside Reader Header & Purchase Bar"
     >
@@ -185,5 +189,16 @@ export const ReaderStickyBuyBar: React.FC<ReaderStickyBuyBarProps> = ({
         </button>
       </div>
     </header>
+
+    {/* Module 12 Item 14: Reader Modal Inline OTP Auth Drawer for Guest Buy Now */}
+    <InlineCheckoutAuthDrawer
+      isOpen={showAuthDrawer}
+      onClose={() => setShowAuthDrawer(false)}
+      onAuthSuccess={() => {
+        setShowAuthDrawer(false);
+        window.location.href = '/checkout?mode=buy_now';
+      }}
+    />
+    </>
   );
 };

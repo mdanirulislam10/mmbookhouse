@@ -26,6 +26,12 @@ export interface CartItem {
   priceDroppedAmount?: number; // For price drop alert banner (Task 16)
   isFreebie?: boolean; // Freebie gift item (price = 0)
   addedAt?: number;
+  // Module 15: Bundle & Cross-Sell Attribution (Items 41, 49)
+  bundleId?: string;
+  bundleAttribution?: string;
+  shipTogether?: boolean;
+  bundleDiscountApplied?: boolean;
+  isBundleItem?: boolean;
 }
 
 export interface SavedForLaterItem {

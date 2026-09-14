@@ -1,55 +1,31 @@
 import type { MetadataRoute } from 'next';
+import { pwaManifestConfig } from '@/lib/services/pwaManifestService';
 
 /**
- * Task 48: Web App Manifest for PWA Support
- * Enables Add to Home Screen, offline shell caching, and standalone app-like experience.
+ * Module 20: Progressive Web App Manifest (Items 2, 7, 9)
+ * Amazon-pattern PWA configuration:
+ * - Standalone app display with #131921 Navy theme & #FFFFFF background
+ * - Maskable and standard 192x192 & 512x512 icons
+ * - 3 App Shortcuts: Track Order, Search Books, Deal of the Day
+ * - Splash screen branding metadata
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'M.M Book House Malda | অনলাইন বইয়ের দোকান',
-    short_name: 'MM Book House',
-    description: 'মালদা ও সমগ্র পশ্চিমবঙ্গের শিক্ষার্থীদের নির্ভরযোগ্য অনলাইন বইয়ের দোকান।',
-    start_url: '/',
-    display: 'standalone',
-    background_color: '#eaeded',
-    theme_color: '#131921',
-    lang: 'bn',
-    dir: 'ltr',
-    orientation: 'portrait',
-    icons: [
-      {
-        src: '/icons/icon-192.png',
-        sizes: '192x192',
-        type: 'image/png',
-        purpose: 'maskable',
-      },
-      {
-        src: '/icons/icon-512.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'any',
-      },
-    ],
-    categories: ['shopping', 'education', 'books'],
-    shortcuts: [
-      {
-        name: 'ডিলস ও অফার',
-        short_name: 'Deals',
-        description: 'আজকের ফ্ল্যাশ ডিলস ও বিশেষ ছাড়',
-        url: '/deals',
-      },
-      {
-        name: 'মালদা স্টুডেন্ট হাব',
-        short_name: 'Student Hub',
-        description: 'মালদার শিক্ষার্থীদের পছন্দের বই',
-        url: '/malda-student-hub',
-      },
-      {
-        name: 'বেস্টসেলার্স',
-        short_name: 'Bestsellers',
-        description: 'শীর্ষ বিক্রিত বইসমূহ',
-        url: '/bestsellers',
-      },
-    ],
+    name: pwaManifestConfig.name,
+    short_name: pwaManifestConfig.short_name,
+    description: pwaManifestConfig.description,
+    start_url: pwaManifestConfig.start_url,
+    id: 'mm-book-house-pwa-app',
+    display: pwaManifestConfig.display,
+    background_color: pwaManifestConfig.background_color,
+    theme_color: pwaManifestConfig.theme_color,
+    lang: pwaManifestConfig.lang,
+    dir: pwaManifestConfig.dir,
+    orientation: pwaManifestConfig.orientation,
+    icons: pwaManifestConfig.icons,
+    categories: pwaManifestConfig.categories,
+    shortcuts: pwaManifestConfig.shortcuts,
+    related_applications: [],
+    prefer_related_applications: false,
   };
 }

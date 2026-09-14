@@ -93,9 +93,18 @@ export const SubnavBar: React.FC<SubnavBarProps> = ({
     <nav
       role="navigation"
       aria-label={language === 'bn' ? 'ক্যাটাগরি সাব-ন্যাভিগেশন' : 'Category sub-navigation'}
-      className={`bg-[#232f3e] dark:bg-slate-900 border-t border-black/20 text-white text-xs select-none relative min-h-[39px] flex items-center font-bengali ${className}`}
+      className={`w-full min-w-0 bg-[#232f3e] dark:bg-slate-900 border-t border-black/20 text-white text-xs select-none relative min-h-[39px] flex items-center font-bengali ${className}`}
     >
-      <div className="max-w-[1500px] mx-auto px-2 sm:px-4 py-0.5 sm:py-1 flex items-center justify-between gap-1 sm:gap-2">
+      {/*
+       * `min-w-0` is required here: this element is a flex item of the flex `nav`
+       * above. Without it, its automatic minimum size is derived from the
+       * (non-wrapping) sub-nav link row inside the `overflow-x-auto` scroller,
+       * so it refuses to shrink below ~1000px and pushes the whole document to
+       * ~1021px on a 390px phone — which is what made the mobile page pan
+       * left/right. With `min-w-0` it shrinks to the viewport and the scroller
+       * below scrolls horizontally as designed.
+       */}
+      <div className="w-full min-w-0 max-w-[1500px] mx-auto px-2 sm:px-4 py-0.5 sm:py-1 flex items-center justify-between gap-1 sm:gap-2">
         
         {/* Left Side: Tasks 6, 7, 8, 9 - Scrollable Sub-Nav Row */}
         <div className="relative flex-1 min-w-0 flex items-center">
