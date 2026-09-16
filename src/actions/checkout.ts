@@ -31,6 +31,9 @@ import { isCodOtpAuthorized, consumeCodOtp } from '@/lib/services/codOtpService'
 import { getAvailableDeliverySpeeds } from '@/lib/services/deliverySpeedService';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { defaultQueueService } from '@/lib/services/notificationQueueService';
+import { registerActiveOrder } from '@/lib/services/orderStore';
+import { getOrCreateInvoiceForOrderAsync } from '@/lib/services/invoiceStorageService';
+import { sendInvoiceWhatsApp, sendInvoiceEmail } from '@/lib/services/invoiceDeliveryService';
 
 // Resilient memory cache across instances / fallback
 const ordersDb = new Map<string, any>();
@@ -441,6 +444,8 @@ export async function placeOrderAction(payload: PlaceOrderPayload): Promise<Plac
     // Cache in module store for instant zero-latency retrieval and SSR
     ordersDb.set(orderId, orderRecord);
     ordersDb.set(orderNumber, orderRecord);
+    registerActiveOrder(orderId, orderRecord);
+    registerActiveOrder(orderNumber, orderRecord);
 
     // 13. Teardown temporary session states
     if (data.paymentMethod === 'cod') {
@@ -467,6 +472,49 @@ export async function placeOrderAction(payload: PlaceOrderPayload): Promise<Plac
       });
     } catch (notifErr) {
       console.warn('Order notification dispatch warning:', notifErr);
+    }
+
+    // 15. Module 14: Generate & Persist Statutory GST Tax Invoice (Items 12, 14, 31, 32, 46)
+    try {
+      const invoice = await getOrCreateInvoiceForOrderAsync(orderId, {
+        orderNumber,
+        customerName: resolvedAddress.recipient_name,
+        customerPhone: resolvedAddress.recipient_phone,
+        customerEmail: (resolvedAddress as any).recipient_email,
+        streetAddress: resolvedAddress.street_address,
+        landmark: resolvedAddress.landmark,
+        city: resolvedAddress.city,
+        district: resolvedAddress.district || resolvedAddress.city,
+        state: resolvedAddress.state || 'West Bengal',
+        stateCode: '19',
+        pincode: resolvedAddress.pincode,
+        totalAmount: pricing.finalPayable,
+        couponDiscount: pricing.couponDiscount,
+        shippingFee: pricing.totalShippingFee,
+        paymentMethod: data.paymentMethod,
+        items: resolvedItems.map((item, idx) => ({
+          id: item.variantId || item.bookId || `item_${idx + 1}`,
+          title: item.title,
+          titleBn: item.titleBn,
+          author: item.author,
+          price: item.price,
+          mrp: item.mrp,
+          quantity: item.quantity,
+        })),
+      });
+
+      // Dispatch WhatsApp & Email with Tax Invoice (Items 31, 32, 36)
+      if (invoice) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mmbookhouse.com';
+        const invoicePdfUrl = `${appUrl}/api/orders/${orderId}/invoice`;
+        await sendInvoiceWhatsApp(invoice, invoicePdfUrl);
+        const emailTarget = (resolvedAddress as any).recipient_email;
+        if (emailTarget) {
+          await sendInvoiceEmail(invoice, emailTarget, invoicePdfUrl);
+        }
+      }
+    } catch (invErr) {
+      console.warn('Post-checkout invoice background creation notice:', invErr);
     }
 
     // 15. Dispatch Server-Side CAPI Event (Item 49)

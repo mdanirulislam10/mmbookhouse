@@ -44,8 +44,38 @@ export const ThermalShippingLabel: React.FC<ThermalShippingLabelProps> = ({ labe
         </button>
       </div>
 
-      {/* 4x6 Thermal Label Container (100mm x 150mm) */}
-      <div className="w-[100mm] h-[150mm] bg-white border-2 border-black p-3.5 flex flex-col justify-between shadow-2xl print:shadow-none print:border-2 print:border-black print:m-0">
+      {/* Injected Print Stylesheet for 4x6 Thermal Printers (100mm x 150mm) */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @page {
+              size: 100mm 150mm;
+              margin: 0;
+            }
+            @media print {
+              html, body {
+                width: 100mm !important;
+                height: 150mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+              }
+              .thermal-print-area {
+                width: 100mm !important;
+                height: 150mm !important;
+                margin: 0 !important;
+                padding: 3mm !important;
+                box-shadow: none !important;
+                border: 2px solid #000000 !important;
+              }
+            }
+          `,
+        }}
+      />
+
+      {/* 4x6 Thermal Label Container (100mm x 150mm) with Mobile Scale Wrapper */}
+      <div className="w-full flex justify-center overflow-x-auto pb-4">
+        <div className="thermal-print-area w-[100mm] min-w-[100mm] h-[150mm] bg-white border-2 border-black p-3.5 flex flex-col justify-between shadow-2xl print:shadow-none print:border-2 print:border-black print:m-0">
         {/* Header Row */}
         <div className="flex justify-between items-center border-b-2 border-black pb-1.5">
           <div>
@@ -116,5 +146,6 @@ export const ThermalShippingLabel: React.FC<ThermalShippingLabelProps> = ({ labe
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

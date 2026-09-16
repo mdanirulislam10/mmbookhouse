@@ -419,14 +419,15 @@ export const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({
               <span>{isBengali ? 'অর্ডার ট্র্যাক করুন' : 'Track Your Order'}</span>
             </Link>
 
-            <button
-              type="button"
-              onClick={handleDownloadTaxInvoice}
+            <Link
+              href={`/invoices/${orderNumber.replace('#', '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 font-bold text-sm shadow-xs transition-all cursor-pointer"
             >
               <Download className="w-4 h-4 text-gray-600" />
               <span>{isBengali ? 'ট্যাক্স ইনভয়েস (PDF)' : 'Download Invoice'}</span>
-            </button>
+            </Link>
 
             <a
               href={waSupportUrl}

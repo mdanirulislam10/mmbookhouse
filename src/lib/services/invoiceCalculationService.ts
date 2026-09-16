@@ -125,6 +125,7 @@ export interface CalculateInvoiceInput {
   pincode: string;
   customerGstin?: string;
   companyName?: string;
+  customerEmail?: string;
   items: CalculateInvoiceInputItem[];
   couponDiscount?: number;
   shippingFee?: number;
@@ -225,6 +226,7 @@ export function calculateInvoiceBreakdown(
       pincode: input.pincode,
       gstin: input.customerGstin,
       company_name: input.companyName,
+      customer_email: input.customerEmail,
     },
     items,
     subtotal_mrp: subtotalMrp,

@@ -28,6 +28,7 @@ import {
   ShoppingBag,
   RotateCcw,
   Clock,
+  FileText,
 } from 'lucide-react';
 import { LiveTrackingData, OrderStatus } from '@/types/tracking';
 
@@ -386,6 +387,17 @@ export const CustomerOrdersHub: React.FC<CustomerOrdersHubProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/invoices/${order.orderId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+                    title={isBn ? 'অফিশিয়াল ট্যাক্স ইনভয়েস দেখুন ও ডাউনলোড করুন' : 'View & Download Tax Invoice'}
+                  >
+                    <FileText className="h-3.5 w-3.5 text-slate-500" />
+                    <span>{isBn ? 'চালান (Invoice)' : 'Invoice'}</span>
+                  </Link>
+
                   <Link
                     href={`/account/orders/${order.orderId}`}
                     className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow"

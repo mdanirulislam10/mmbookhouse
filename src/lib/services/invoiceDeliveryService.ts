@@ -28,18 +28,18 @@ export function formatWhatsAppInvoiceMessage(invoice: TaxInvoice, pdfUrl: string
   return `📚 *M.M. BOOK HOUSE (মালদা)* - ট্যাক্স ইনভয়েস ও রসিদ
 ------------------------------------------
 নমস্কার *${invoice.customer.customer_name}*,
-আপনার অর্ডার *#${invoice.order_id}*-এর GST ট্যাক্স ইনভয়েস তৈরি হয়েছে।
+এম.এম বুক হাউস মালদা থেকে আপনার অর্ডার *#${invoice.order_id}*-এর অফিশিয়াল ট্যাক্স ইনভয়েস সংযুক্ত করা হলো। পড়ার জন্য শুভকামনা!
 
 📄 ইনভয়েস নং: *${invoice.invoice_number}*
 📅 তারিখ: *${invoice.invoice_date}*
-💰 মোট মূল্য: *₹${invoice.total_payable_amount.toFixed(2)}* (পরিশোধ: ${invoice.payment_status})
-🏷️ কর হার: HSN 4901 (0% Nil-Rated GST)
+💰 মোট মূল্য: *₹${invoice.total_payable_amount.toFixed(2)}* (পরিশোধ: ${invoice.payment_status === 'PAID' ? 'অনলাইন পেইড' : 'ক্যাশ অন ডেলিভারি'})
+🏷️ শুল্ক হার: HSN 4901 (0% Nil-Rated GST Exempted)
 
-📥 আপনার অফিসিয়াল PDF ইনভয়েস ডাউনলোড করুন:
+📥 আপনার ডিজিটাল ট্যাক্স ইনভয়েস দেখতে ও ডাউনলোড করতে ক্লিক করুন:
 ${pdfUrl}
 
-আমাদের সাথে থাকার জন্য ধন্যবাদ!
-হেল্পলাইন: +91 97330 00000 | mmbookhouse.com`;
+🌱 Save Paper, Save Trees — Go Digital with M.M Book House Malda
+হেল্পলাইন: +91 97330 85000 | mmbookhouse.com`;
 }
 
 /**

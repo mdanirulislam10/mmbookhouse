@@ -60,9 +60,36 @@ export const CounterPosReceipt: React.FC<CounterPosReceiptProps> = ({ invoice, o
         </button>
       </div>
 
+      {/* Dynamic Print CSS for 58mm / 80mm POS Printers */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @page {
+              size: ${widthMm}mm auto;
+              margin: 0;
+            }
+            @media print {
+              html, body {
+                width: ${widthMm}mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+              }
+              .pos-print-area {
+                width: ${widthMm}mm !important;
+                margin: 0 !important;
+                padding: 2mm !important;
+                box-shadow: none !important;
+                border: none !important;
+              }
+            }
+          `,
+        }}
+      />
+
       {/* POS Thermal Receipt */}
       <div
-        className={`bg-white text-black p-4 font-mono shadow-2xl print:shadow-none print:m-0 border border-slate-300 print:border-none ${widthMm === 58 ? 'w-[58mm] text-[10px]' : 'w-[80mm] text-xs'}`}
+        className={`pos-print-area bg-white text-black p-3 font-mono shadow-2xl print:shadow-none print:m-0 border border-slate-300 print:border-none ${widthMm === 58 ? 'w-[58mm] text-[10px]' : 'w-[80mm] text-xs'}`}
       >
         {/* Header */}
         <div className="text-center">

@@ -22,16 +22,27 @@ import { AdminPaymentAuditTable } from './AdminPaymentAuditTable';
 import { getAllPaymentTransactions } from '../../lib/services/webhookService';
 import { calculateTPlusOneSettlement } from '../../lib/services/merchantFinanceService';
 import { PaymentTransaction } from '../../types/payment';
+import { AmazonTaxInvoiceView } from '../invoice/AmazonTaxInvoiceView';
+import { ThermalShippingLabel } from '../invoice/ThermalShippingLabel';
+import { CounterPosReceipt } from '../invoice/CounterPosReceipt';
+import { PackingSlipView } from '../invoice/PackingSlipView';
+import { AdminGstrReportTable } from './AdminGstrReportTable';
+import { getOrCreateInvoiceForOrder } from '../../lib/services/invoiceStorageService';
+import { generateGstr1Rows } from '../../lib/services/gstrExportService';
 
 export const SellerCentralDashboard: React.FC = () => {
   // 1. RBAC & Navigation State
   const [activeRole, setActiveRole] = useState<AdminRole>('super_admin');
   const [activeTab, setActiveTab] = useState<
-    'orders' | 'inventory' | 'rto_cod' | 'analytics' | 'marketing' | 'settings' | 'finance'
+    'orders' | 'inventory' | 'rto_cod' | 'analytics' | 'marketing' | 'settings' | 'finance' | 'gst_reports'
   >('orders');
   const [pipelineFilter, setPipelineFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [soundAlerts, setSoundAlerts] = useState(true);
+
+  const [invoiceModalOrder, setInvoiceModalOrder] = useState<AdminOrderSummary | null>(null);
+  const [thermalLabelOrder, setThermalLabelOrder] = useState<AdminOrderSummary | null>(null);
+  const [posReceiptOrder, setPosReceiptOrder] = useState<AdminOrderSummary | null>(null);
 
   // 2. Services Data State
   const [orders, setOrders] = useState<AdminOrderSummary[]>([]);
@@ -373,7 +384,8 @@ export const SellerCentralDashboard: React.FC = () => {
             { id: 'orders', label: '📦 অর্ডার পাইপলাইন' },
             { id: 'inventory', label: '📚 ইনভেন্টরি ও বারকোড' },
             { id: 'rto_cod', label: '🔄 RTO ও COD রিকনসিলিয়েশন' },
-            { id: 'analytics', label: '📊 সেলস অ্যানালিটিক্স ও GSTR-1' },
+            { id: 'analytics', label: '📊 সেলস অ্যানালিটিক্স' },
+            { id: 'gst_reports', label: '📑 GSTR-1 সেলস লেজার' },
             { id: 'marketing', label: '🎯 মার্কেটিং ও কুপন' },
             { id: 'settings', label: '⚙️ স্টোর সেটিংস' },
             { id: 'finance', label: '💳 অর্থ ও পেমেন্ট অডিট' },
@@ -510,11 +522,38 @@ export const SellerCentralDashboard: React.FC = () => {
                               {order.pipeline_status}
                             </span>
                           </td>
-                          <td className="p-3 text-right space-x-1">
+                          <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                            {/* Tax Invoice View & Print */}
+                            <button
+                              onClick={() => setInvoiceModalOrder(order)}
+                              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-[11px] text-white font-medium shadow-xs"
+                              title="অফিশিয়াল GST ট্যাক্স ইনভয়েস দেখুন ও প্রিন্ট করুন"
+                            >
+                              🧾 ইনভয়েস
+                            </button>
+
+                            {/* 4x6 Thermal Label Print */}
+                            <button
+                              onClick={() => setThermalLabelOrder(order)}
+                              className="px-2 py-1 bg-amber-600 hover:bg-amber-500 rounded text-[11px] text-white font-medium shadow-xs"
+                              title="৪x৬ ইঞ্চি থার্মাল শিপিং লেবেল প্রিন্ট"
+                            >
+                              🏷️ ৪x৬ লেবেল
+                            </button>
+
+                            {/* POS Receipt */}
+                            <button
+                              onClick={() => setPosReceiptOrder(order)}
+                              className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-[11px] text-white font-medium shadow-xs"
+                              title="২/৩ ইঞ্চি পিওএস ক্যাশ কাউন্টার রসিদ"
+                            >
+                              🖨️ POS
+                            </button>
+
                             {/* A5 Packing Slip Button */}
                             <button
                               onClick={() => setPackingSlipOrder(order)}
-                              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[11px] text-slate-200"
+                              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[11px] text-slate-200 shadow-xs"
                               title="A5 স্মার্ট প্যাকিং স্লিপ দেখুন"
                             >
                               📄 স্লিপ
@@ -863,6 +902,33 @@ export const SellerCentralDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* TAB 4.5: GSTR-1 MONTHLY STATUTORY SALES LEDGER (Items 42, 43, 50) */}
+        {activeTab === 'gst_reports' && (
+          <div className="space-y-4">
+            <AdminGstrReportTable
+              rows={generateGstr1Rows(
+                orders.map((o) =>
+                  getOrCreateInvoiceForOrder(o.order_id, {
+                    customerName: o.customer_name,
+                    customerPhone: o.customer_phone,
+                    streetAddress: o.shipping_address_text,
+                    city: o.district || 'Malda',
+                    totalAmount: o.total_amount,
+                    items: o.items.map((it, i) => ({
+                      id: `item_${i}`,
+                      title: it.title,
+                      price: Math.round(o.total_amount / (o.items.length || 1)),
+                      quantity: 1,
+                    })),
+                    paymentMethod: (o.payment_mode?.toLowerCase() as any) || 'upi',
+                  })
+                )
+              )}
+              selectedMonth="2026-09"
+            />
+          </div>
+        )}
+
         {/* TAB 5: MARKETING & COUPONS */}
         {activeTab === 'marketing' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1043,55 +1109,34 @@ export const SellerCentralDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL 1: A5 SMART PACKING SLIP (Item 23) */}
+      {/* MODAL 1: A5 SMART PACKING SLIP (Item 26) */}
       {packingSlipOrder && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-white">A5 স্মার্ট প্যাকিং স্লিপ চেকলিস্ট</h3>
-                <p className="text-xs text-amber-400 font-mono">অর্ডার #{packingSlipOrder.order_number}</p>
-              </div>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-slate-100 text-slate-900 rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative p-4">
+            <div className="flex justify-between items-center mb-2 print:hidden">
+              <span className="text-xs font-bold text-slate-700">A5 স্মার্ট ওয়্যারহাউস প্যাকিং স্লিপ</span>
               <button
                 onClick={() => setPackingSlipOrder(null)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
+                className="p-1.5 rounded-full hover:bg-slate-200 text-slate-500 font-bold"
               >
                 ✕
               </button>
             </div>
-
-            <div className="text-xs space-y-1 text-slate-300">
-              <div><strong>গ্রাহক:</strong> {packingSlipOrder.customer_name} ({packingSlipOrder.customer_phone})</div>
-              <div><strong>ঠিকানা:</strong> {packingSlipOrder.shipping_address_text}</div>
-            </div>
-
-            <div className="border border-slate-700 rounded-lg p-3 bg-slate-900/60 space-y-2">
-              <div className="text-[11px] font-bold text-slate-400 uppercase">বই ও র‍্যাক লোকেশন তালিকা:</div>
-              {packingSlipOrder.items.map((item, i) => (
-                <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-slate-800 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" defaultChecked className="accent-amber-500" />
-                    <span>{item.title}</span>
-                  </div>
-                  <span className="font-mono text-amber-300 font-semibold">{item.rack_location}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs"
-              >
-                🖨️ প্রিন্ট স্লিপ (A5)
-              </button>
-              <button
-                onClick={() => setPackingSlipOrder(null)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"
-              >
-                বন্ধ করুন
-              </button>
-            </div>
+            <PackingSlipView
+              slipData={{
+                order_id: packingSlipOrder.order_number,
+                invoice_number: `INV-${packingSlipOrder.order_number.replace('#', '')}`,
+                customer_name: `${packingSlipOrder.customer_name} (${packingSlipOrder.customer_phone})`,
+                delivery_speed: 'Express Logistics Delivery',
+                items: packingSlipOrder.items.map((it) => ({
+                  title: it.title,
+                  quantity: it.quantity,
+                  verified: true,
+                })),
+                packer_note: `Rack Locations: ${packingSlipOrder.items.map((i) => i.rack_location).join(', ')}`,
+              }}
+              onBack={() => setPackingSlipOrder(null)}
+            />
           </div>
         </div>
       )}
@@ -1144,6 +1189,113 @@ export const SellerCentralDashboard: React.FC = () => {
             >
               যাচাই করে হ্যান্ডওভার করুন
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: AMAZON TAX INVOICE MODAL (Items 2, 6, 8, 35) */}
+      {invoiceModalOrder && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white text-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-2 flex justify-between items-center z-10 print:hidden">
+              <span className="text-xs font-bold text-slate-700">অফিশিয়াল ট্যাক্স ইনভয়েস প্রিভিউ</span>
+              <button
+                onClick={() => setInvoiceModalOrder(null)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <AmazonTaxInvoiceView
+              invoice={getOrCreateInvoiceForOrder(invoiceModalOrder.order_id, {
+                customerName: invoiceModalOrder.customer_name,
+                customerPhone: invoiceModalOrder.customer_phone,
+                streetAddress: invoiceModalOrder.shipping_address_text,
+                city: invoiceModalOrder.district || 'Malda',
+                totalAmount: invoiceModalOrder.total_amount,
+                items: invoiceModalOrder.items.map((it, i) => ({
+                  id: it.book_id || `item_${i}`,
+                  title: it.title,
+                  price: it.unit_price,
+                  quantity: it.quantity,
+                })),
+                paymentMethod: (invoiceModalOrder.payment_mode?.toLowerCase() as any) || 'upi',
+              })}
+              onBack={() => setInvoiceModalOrder(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: 4x6" THERMAL SHIPPING LABEL MODAL (Items 21, 22, 23, 25, 35) */}
+      {thermalLabelOrder && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-slate-100 text-slate-900 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl relative p-4">
+            <div className="flex justify-between items-center mb-2 print:hidden">
+              <span className="text-xs font-bold text-slate-700">৪x৬ ইঞ্চি থার্মাল শিপিং লেবেল</span>
+              <button
+                onClick={() => setThermalLabelOrder(null)}
+                className="p-1.5 rounded-full hover:bg-slate-200 text-slate-500 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <ThermalShippingLabel
+              labelData={{
+                awb_tracking_number: thermalLabelOrder.awb_code || `DEL${thermalLabelOrder.order_id.replace(/\D/g, '') || '987654321'}`,
+                courier_name: thermalLabelOrder.courier_name || 'DELHIVERY EXPRESS',
+                order_id: thermalLabelOrder.order_number,
+                invoice_number: `INV-${thermalLabelOrder.order_number.replace('#', '')}`,
+                recipient_name: thermalLabelOrder.customer_name,
+                recipient_phone: thermalLabelOrder.customer_phone,
+                recipient_address: thermalLabelOrder.shipping_address_text || 'Netaji Subhash Road, Malda',
+                recipient_landmark: 'Near Rathbari More Gate',
+                recipient_pincode: thermalLabelOrder.pincode || '732101',
+                recipient_city: thermalLabelOrder.district || 'Malda',
+                recipient_district: thermalLabelOrder.district || 'Malda',
+                recipient_state: 'West Bengal',
+                seller_return_address: 'M.M Book House, Netaji Subhash Road, English Bazar, Malda - 732101, WB',
+                payment_mode: thermalLabelOrder.payment_mode === 'COD' ? 'COD' : 'PREPAID',
+                collectable_amount: thermalLabelOrder.payment_mode === 'COD' ? thermalLabelOrder.total_amount : 0,
+                weight_kg: 0.65,
+                otp_badge: '✔ Handover only after 4-digit OTP',
+              }}
+              onBack={() => setThermalLabelOrder(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: 58/80mm POS COUNTER THERMAL RECEIPT MODAL (Item 38) */}
+      {posReceiptOrder && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-slate-100 text-slate-900 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative p-4">
+            <div className="flex justify-between items-center mb-2 print:hidden">
+              <span className="text-xs font-bold text-slate-700">POS কাউন্টার থার্মাল রসিদ (58mm/80mm)</span>
+              <button
+                onClick={() => setPosReceiptOrder(null)}
+                className="p-1.5 rounded-full hover:bg-slate-200 text-slate-500 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <CounterPosReceipt
+              invoice={getOrCreateInvoiceForOrder(posReceiptOrder.order_id, {
+                customerName: posReceiptOrder.customer_name,
+                customerPhone: posReceiptOrder.customer_phone,
+                streetAddress: posReceiptOrder.shipping_address_text,
+                city: posReceiptOrder.district || 'Malda',
+                totalAmount: posReceiptOrder.total_amount,
+                items: posReceiptOrder.items.map((it, i) => ({
+                  id: it.book_id || `item_${i}`,
+                  title: it.title,
+                  price: it.unit_price,
+                  quantity: it.quantity,
+                })),
+                paymentMethod: (posReceiptOrder.payment_mode?.toLowerCase() as any) || 'upi',
+              })}
+              onBack={() => setPosReceiptOrder(null)}
+            />
           </div>
         </div>
       )}

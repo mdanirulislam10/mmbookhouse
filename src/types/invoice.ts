@@ -44,6 +44,7 @@ export interface CustomerBillingDetails {
   pincode: string;
   gstin?: string; // B2B buyer GSTIN (Item 5)
   company_name?: string;
+  customer_email?: string;
 }
 
 export interface InvoiceItem {

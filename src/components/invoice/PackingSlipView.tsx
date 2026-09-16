@@ -47,6 +47,23 @@ export const PackingSlipView: React.FC<PackingSlipViewProps> = ({ slipData, onBa
         </button>
       </div>
 
+      {/* A5 Print Stylesheet */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @page {
+              size: A5;
+              margin: 8mm;
+            }
+            @media print {
+              body {
+                background: #ffffff !important;
+              }
+            }
+          `,
+        }}
+      />
+
       {/* A5 Slip Container */}
       <div className="max-w-2xl mx-auto bg-white border border-slate-300 p-6 shadow rounded print:border-none print:shadow-none print:p-0">
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3 mb-4">
