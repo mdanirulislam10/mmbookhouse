@@ -29,6 +29,7 @@ import { PackingSlipView } from '../invoice/PackingSlipView';
 import { AdminGstrReportTable } from './AdminGstrReportTable';
 import { getOrCreateInvoiceForOrder } from '../../lib/services/invoiceStorageService';
 import { generateGstr1Rows } from '../../lib/services/gstrExportService';
+import { BackupManagementPanel } from './BackupManagementPanel';
 
 export const SellerCentralDashboard: React.FC = () => {
   // 1. RBAC & Navigation State
@@ -39,6 +40,11 @@ export const SellerCentralDashboard: React.FC = () => {
   const [pipelineFilter, setPipelineFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [soundAlerts, setSoundAlerts] = useState(true);
+
+  const handleAdminLogout = async () => {
+    await fetch('/api/admin/session', { method: 'DELETE' }).catch(() => undefined);
+    window.location.assign('/admin/login');
+  };
 
   const [invoiceModalOrder, setInvoiceModalOrder] = useState<AdminOrderSummary | null>(null);
   const [thermalLabelOrder, setThermalLabelOrder] = useState<AdminOrderSummary | null>(null);
@@ -310,6 +316,13 @@ export const SellerCentralDashboard: React.FC = () => {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={handleAdminLogout}
+            className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-rose-500 hover:text-rose-300"
+          >
+            লগআউট
+          </button>
         </div>
       </header>
 
@@ -999,6 +1012,7 @@ export const SellerCentralDashboard: React.FC = () => {
         {/* TAB 6: SETTINGS */}
         {activeTab === 'settings' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <BackupManagementPanel />
             {/* Maintenance Mode & Shophouse Profile */}
             <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
               <h3 className="font-bold text-white text-sm">🏪 দোকান প্রোফাইল ও মেইন্টেন্যান্স</h3>

@@ -6,13 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "backup:run": "node scripts/backup_to_google_drive.mjs",
+    "backup:decrypt": "node scripts/decrypt_backup.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "@types/qrcode": "^1.5.6",
+    "archiver": "^8.0.0",
     "clsx": "^2.1.1",
+    "googleapis": "^181.0.0",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
     "qrcode": "^1.5.4",
@@ -23,6 +27,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@types/archiver": "^8.0.0",
     "@types/node": "^22.13.4",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.0.8",
