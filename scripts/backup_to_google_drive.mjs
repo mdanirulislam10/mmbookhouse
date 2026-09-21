@@ -68,6 +68,36 @@ function run(command, args) {
   });
 }
 
+function dumpManagedSchema(databaseUrl, outputPath) {
+  const parsed = new URL(databaseUrl);
+  const args = [
+    'run', '--rm', '--entrypoint', 'pg_dump',
+    '--env', `PGPASSWORD=${decodeURIComponent(parsed.password)}`,
+    '--env', 'PGSSLMODE=require',
+    'ghcr.io/supabase/postgres:17.6.1.167',
+    '--schema-only', '--schema=auth', '--schema=storage',
+    '--no-owner', '--no-acl', '--no-password',
+    '--host', parsed.hostname, '--port', parsed.port || '5432',
+    '--username', decodeURIComponent(parsed.username),
+    '--dbname', decodeURIComponent(parsed.pathname.slice(1) || 'postgres'),
+  ];
+  return new Promise((resolve, reject) => {
+    const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'], shell: false });
+    const output = createWriteStream(outputPath, { flags: 'wx' });
+    let exited = false;
+    let finished = false;
+    const maybeResolve = () => { if (exited && finished) resolve(); };
+    child.stdout.pipe(output);
+    child.once('error', reject);
+    output.once('error', reject);
+    output.once('finish', () => { finished = true; maybeResolve(); });
+    child.once('close', (code) => {
+      if (code !== 0) reject(new Error(`Managed schema export exited with code ${code}`));
+      else { exited = true; maybeResolve(); }
+    });
+  });
+}
+
 async function createZip(outputPath, files, manifest) {
   const output = createWriteStream(outputPath, { flags: 'wx' });
   const archive = new ZipArchive({ zlib: { level: 9 } });
@@ -151,7 +181,7 @@ async function main() {
 
   await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', rolesPath, '--role-only']);
   await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', schemaPath]);
-  await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', managedSchemaPath, '--schema', 'auth,storage']);
+  await dumpManagedSchema(databaseUrl, managedSchemaPath);
   const managedSchema = await readFile(managedSchemaPath, 'utf8');
   if (!/CREATE TABLE (?:IF NOT EXISTS )?auth\.users\b/i.test(managedSchema)) {
     throw new Error('Managed Auth schema dump is incomplete; refusing to upload an un-restorable backup.');
