@@ -166,6 +166,7 @@ try {
         '--env', 'GOTRUE_DB_DRIVER=postgres',
         '--env', 'GOTRUE_SITE_URL=http://localhost',
         '--env', 'API_EXTERNAL_URL=http://localhost',
+        '--env', `GOTRUE_JWT_SECRET=${randomBytes(32).toString('hex')}`,
         '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${containerName}:5432/postgres`,
         'supabase/gotrue:v2.196.0', 'auth', 'migrate',
       ]);
