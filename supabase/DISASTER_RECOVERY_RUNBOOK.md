@@ -40,8 +40,11 @@ of a database dump and need a separate object-backup process.
 3. Create a fine-grained GitHub token for the repository with **Actions: Read and
    write** permission. In Vercel set `GITHUB_BACKUP_TOKEN`, `GITHUB_REPOSITORY`,
    `GITHUB_BACKUP_REF=main`, and `GITHUB_BACKUP_WORKFLOW=database-backup.yml`.
-4. In Google Cloud, enable the Google Drive API and create OAuth 2 credentials. Obtain
-   a refresh token for the Drive account that owns the backup folder.
+4. In Google Cloud, enable the Google Drive API and create OAuth 2 credentials. Run
+   `npm run backup:authorize-drive` locally, paste the desktop client's ID and secret
+   into the localhost-only form, and approve the limited `drive.file` permission for
+   the Drive account that owns the backup folder. The helper copies the refresh token
+   to the Windows clipboard without writing OAuth credentials or tokens to disk.
 5. Add these GitHub Actions repository secrets:
    `SUPABASE_DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
    `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`,

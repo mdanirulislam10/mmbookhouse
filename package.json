@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "backup:run": "node scripts/backup_to_google_drive.mjs",
-    "backup:decrypt": "node scripts/decrypt_backup.mjs"
+    "backup:decrypt": "node scripts/decrypt_backup.mjs",
+    "backup:authorize-drive": "node scripts/authorize_google_drive.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
