@@ -19,8 +19,10 @@ for (const name of required) {
 
 const folderName = 'mmbookhousebackup';
 const image = 'ghcr.io/supabase/postgres:17.6.1.167';
+const fullRestore = process.env.RESTORE_SCOPE === 'full';
 let tempDirectory;
 let containerId;
+let networkName;
 
 function command(program, args, { inputPath } = {}) {
   return new Promise((resolve, reject) => {
@@ -113,8 +115,12 @@ try {
 
   const containerName = `mmbookhouse-restore-drill-${randomBytes(4).toString('hex')}`;
   const password = randomBytes(24).toString('hex');
+  if (fullRestore) {
+    networkName = `${containerName}-net`;
+    await command('docker', ['network', 'create', '--internal', networkName]);
+  }
   containerId = await command('docker', [
-    'run', '--detach', '--rm', '--network', 'none', '--name', containerName,
+    'run', '--detach', '--rm', '--network', networkName || 'none', '--name', containerName,
     '--env', `POSTGRES_PASSWORD=${password}`, image,
   ]);
   let ready = false;
@@ -148,6 +154,23 @@ try {
   const bootstrapPath = join(tempDirectory, 'platform-roles.sql');
   await writeFile(bootstrapPath, roleBootstrap);
   await psql(bootstrapPath, 'Isolated platform roles', 'supabase_admin');
+  if (fullRestore) {
+    await command('docker', [
+      'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
+      '-U', 'supabase_admin', '-d', 'postgres',
+      '-c', `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${password}'`,
+    ]);
+    try {
+      await command('docker', [
+        'run', '--rm', '--network', networkName,
+        '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${containerName}:5432/postgres`,
+        'supabase/gotrue:v2.196.0', 'auth', 'migrate',
+      ]);
+    } catch (error) {
+      throw new Error(`Isolated Supabase Auth migration failed (${error.message}); production was not touched.`);
+    }
+    console.log('Official Supabase Auth migrations applied in isolated database');
+  }
   await psql(join(extracted, 'roles.sql'), 'Roles', 'supabase_admin');
   await psql(join(extracted, 'schema.sql'), 'Schema', 'supabase_admin');
   const inventoryBefore = await command('docker', [
@@ -159,11 +182,17 @@ try {
     '-c', "select tgenabled from pg_trigger where tgname = 'trigger_auto_init_variant_inventory'",
   ]);
   console.log(`Inventory before data: ${inventoryBefore}; auto-init trigger mode: ${inventoryTrigger || 'absent'}`);
-  const publicDataPath = join(tempDirectory, 'public-data.sql');
-  await command('python3', [
-    'scripts/filter_public_dump_for_drill.py', join(extracted, 'data.sql'), publicDataPath,
-  ]);
-  await psql(publicDataPath, 'Public application data', 'supabase_admin');
+  const dataPath = join(tempDirectory, fullRestore ? 'full-data.sql' : 'public-data.sql');
+  if (fullRestore) {
+    const output = createWriteStream(dataPath, { flags: 'wx' });
+    output.write('SET session_replication_role = replica;\n');
+    await pipeline(createReadStream(join(extracted, 'data.sql')), output);
+  } else {
+    await command('python3', [
+      'scripts/filter_public_dump_for_drill.py', join(extracted, 'data.sql'), dataPath,
+    ]);
+  }
+  await psql(dataPath, fullRestore ? 'Full database data' : 'Public application data', 'supabase_admin');
   const tableCount = Number(await command('docker', [
     'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'postgres', '-d', 'postgres',
     '-c', "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'",
@@ -174,12 +203,26 @@ try {
     '-c', 'select count(*) from public.books',
   ]));
   if (!Number.isInteger(bookCount) || bookCount < 1) throw new Error('Restore produced no books.');
-  console.log(`PUBLIC APP-DATA RESTORE PASSED: ${tableCount} public tables, ${bookCount} books in isolated PostgreSQL.`);
-  console.log('NOT A FULL SUPABASE RESTORE: managed Auth/Storage data requires a matching target schema.');
+  if (fullRestore) {
+    const authUsers = await command('docker', [
+      'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+      '-c', 'select count(*) from auth.users',
+    ]);
+    const storageObjects = await command('docker', [
+      'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+      '-c', 'select count(*) from storage.objects',
+    ]);
+    console.log(`FULL DATABASE RESTORE PASSED: ${tableCount} public tables, ${bookCount} books, ${authUsers} Auth users, ${storageObjects} Storage metadata rows.`);
+    console.log('Storage object files and end-to-end sign-in remain outside this database-only drill.');
+  } else {
+    console.log(`PUBLIC APP-DATA RESTORE PASSED: ${tableCount} public tables, ${bookCount} books in isolated PostgreSQL.`);
+    console.log('NOT A FULL SUPABASE RESTORE: managed Auth/Storage data requires a matching target schema.');
+  }
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
   if (containerId) await command('docker', ['stop', containerId]).catch(() => {});
+  if (networkName) await command('docker', ['network', 'rm', networkName]).catch(() => {});
   if (tempDirectory) await rm(tempDirectory, { recursive: true, force: true });
 }
