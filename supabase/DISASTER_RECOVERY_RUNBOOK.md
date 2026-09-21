@@ -25,6 +25,7 @@ technical implementation remains hidden from the owner.
 
 - PostgreSQL roles exported by the Supabase CLI
 - Application schema exported by the Supabase CLI
+- Managed Auth and Storage schema exported with PostgreSQL `pg_dump` (format v2)
 - Application table data exported by the Supabase CLI
 - A manifest describing creation time and restore order
 
@@ -85,9 +86,12 @@ developer:
 1. Download a `.zip.enc` backup from Drive.
 2. Set `BACKUP_ENCRYPTION_KEY` in a private local environment.
 3. Run `npm run backup:decrypt -- path/to/backup.zip.enc`.
-4. Extract the resulting ZIP and restore into an isolated test project in this order:
-   `roles.sql`, `schema.sql`, then `data.sql`.
-   The target must have a compatible Supabase Auth/Storage schema. Execute
+4. Extract the resulting ZIP. For format-v2 backups the restore order is
+   `roles.sql`, `managed-schema.sql`, `schema.sql`, then `data.sql`. Restore to
+   an empty, disposable PostgreSQL target. The automated drill replaces the
+   target's preinstalled `auth` and `storage` schemas with those from the backup
+   and applies managed triggers after the application schema. Never drop these
+   schemas on a running Supabase project. Execute
    `SET session_replication_role = replica` in the **same psql session** that
    loads `data.sql`, so import triggers do not create duplicate rows.
 5. Validate critical row counts and application login/order flows. Never point this
@@ -100,9 +104,15 @@ and public-table data to a temporary Supabase PostgreSQL container. Its success 
 **not** verify Auth/Storage data, Storage objects, login, or a full project recovery.
 The September 21, 2026 drill restored 58 public tables and 1,003 books:
 https://github.com/mdanirulislam10/mmbookhouse/actions/runs/35599635467 .
-The full-data attempt stopped because the managed target's `auth.audit_log_entries`
-lacked the source's `ip_address` column. A full drill needs a disposable Supabase
-project with matching managed-service migrations before restoring `data.sql`.
+Older format-v1 archives lack the managed schema and can fail a full restore
+because the target Auth/Storage versions differ. The format-v2 encrypted backup
+`mmbookhousebackup_2026-09-21_23-01-46_IST.zip.enc` passed the separate manual
+`verify-backup-full-restore.yml` drill: 58 public tables and 1,003 books were
+restored along with Auth/Storage schema and data SQL in isolated PostgreSQL.
+The source contained zero Auth users and zero Storage metadata rows, so this
+does not prove a populated Auth or Storage restore, actual sign-in, or Storage
+object-file recovery. See the verified run:
+https://github.com/mdanirulislam10/mmbookhouse/actions/runs/35635184804 .
 
 ### Failure handling
 
