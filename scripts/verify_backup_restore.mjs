@@ -55,7 +55,6 @@ async function psql(filePath, stage, user = 'postgres') {
       'exec', '-i', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
       '-U', user, '-d', 'postgres',
     ];
-    if (stage === 'Data') args.push('-c', 'SET session_replication_role = replica');
     args.push('-f', '-');
     await command('docker', args, { inputPath: filePath });
     console.log(`${stage} restored`);
