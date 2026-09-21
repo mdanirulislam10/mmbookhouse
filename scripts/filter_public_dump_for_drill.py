@@ -18,6 +18,7 @@ def main() -> None:
     copying = False
     copy_count = 0
     with input_path.open("r", encoding="utf-8") as source, output_path.open("x", encoding="utf-8") as target:
+        target.write("DO $$ BEGIN IF current_setting('session_replication_role') <> 'replica' THEN RAISE EXCEPTION 'replica mode not enabled'; END IF; END $$;\n")
         for line in source:
             if copying:
                 target.write(line)

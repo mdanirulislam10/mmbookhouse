@@ -151,6 +151,15 @@ try {
   await psql(bootstrapPath, 'Isolated platform roles', 'supabase_admin');
   await psql(join(extracted, 'roles.sql'), 'Roles', 'supabase_admin');
   await psql(join(extracted, 'schema.sql'), 'Schema', 'supabase_admin');
+  const inventoryBefore = await command('docker', [
+    'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+    '-c', 'select count(*) from public.inventory',
+  ]);
+  const inventoryTrigger = await command('docker', [
+    'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+    '-c', "select tgenabled from pg_trigger where tgname = 'trigger_auto_init_variant_inventory'",
+  ]);
+  console.log(`Inventory before data: ${inventoryBefore}; auto-init trigger mode: ${inventoryTrigger || 'absent'}`);
   const publicDataPath = join(tempDirectory, 'public-data.sql');
   await command('python3', [
     'scripts/filter_public_dump_for_drill.py', join(extracted, 'data.sql'), publicDataPath,
