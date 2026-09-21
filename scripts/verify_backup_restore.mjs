@@ -33,7 +33,14 @@ function command(program, args, { inputPath } = {}) {
     if (inputPath) {
       const source = createReadStream(inputPath);
       source.once('error', reject);
+      // psql can exit on its first SQL error while the large data dump is still
+      // being streamed. Ignore the resulting broken pipe and report psql's
+      // original error from the child process instead.
+      child.stdin.on('error', (error) => {
+        if (error.code !== 'EPIPE') reject(error);
+      });
       source.pipe(child.stdin);
+      child.once('close', () => source.destroy());
     }
     child.once('close', (code) => {
       if (code === 0) resolve(stdout.trim());
