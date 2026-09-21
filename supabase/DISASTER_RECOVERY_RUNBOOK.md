@@ -49,7 +49,7 @@ of a database dump and need a separate object-backup process.
    `SUPABASE_DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
    `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`,
    `GOOGLE_DRIVE_REFRESH_TOKEN`, and `BACKUP_ENCRYPTION_KEY`. Optionally set
-   `GOOGLE_DRIVE_FOLDER_ID`; otherwise the worker creates/finds `MMM Enterprise`.
+   `GOOGLE_DRIVE_FOLDER_ID`; otherwise the worker creates/finds `mmbookhousebackup`.
 6. Generate the encryption key once with
    `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and keep
    a second copy in a password manager. Losing this key makes every encrypted backup

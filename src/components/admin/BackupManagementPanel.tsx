@@ -131,7 +131,7 @@ export function BackupManagementPanel() {
             স্বয়ংক্রিয় ডাটাবেস ব্যাকআপ
           </h3>
           <p className="mt-1 text-xs text-slate-400">
-            প্রতিদিন রাত ১১:৩০-এ encrypted backup Google Drive-এর “MMM Enterprise” ফোল্ডারে রাখা হবে।
+            প্রতিদিন রাত ১১:৩০-এ encrypted backup Google Drive-এর “mmbookhousebackup” ফোল্ডারে রাখা হবে।
           </p>
         </div>
         <div className={`rounded-full border px-3 py-1 text-xs font-bold ${ready ? 'border-emerald-600 bg-emerald-950/50 text-emerald-300' : 'border-amber-600 bg-amber-950/50 text-amber-300'}`}>
@@ -166,7 +166,7 @@ export function BackupManagementPanel() {
         <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
           <div className="flex items-center gap-2 text-xs text-slate-400"><Cloud className="h-4 w-4" /> গন্তব্য</div>
           <div className="mt-2 font-bold text-white">Google Drive</div>
-          <div className="text-[11px] text-slate-500">MMM Enterprise</div>
+          <div className="text-[11px] text-slate-500">mmbookhousebackup</div>
         </div>
       </div>
 

@@ -143,7 +143,7 @@ async function main() {
   const dataPath = join(temporaryDirectory, 'data.sql');
   const archivePath = join(temporaryDirectory, 'database-backup.zip');
   const timestamp = backupTimestamp();
-  const encryptedName = `MMM-Enterprise_${timestamp}.zip.enc`;
+  const encryptedName = `mmbookhousebackup_${timestamp}.zip.enc`;
   const encryptedPath = join(temporaryDirectory, encryptedName);
   const cli = process.env.SUPABASE_CLI_COMMAND || 'supabase';
   const databaseUrl = process.env.SUPABASE_DB_URL;
