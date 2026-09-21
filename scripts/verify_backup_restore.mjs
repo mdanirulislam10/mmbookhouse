@@ -183,15 +183,28 @@ try {
     console.log('Official Supabase Auth migrations applied in isolated database');
   }
   await psql(join(extracted, 'roles.sql'), 'Roles', 'supabase_admin');
+  let deferredManagedTriggersPath;
   if (fullRestore && hasManagedSchema) {
     await command('docker', [
       'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
       '-U', 'supabase_admin', '-d', 'postgres',
       '-c', 'DROP SCHEMA IF EXISTS auth CASCADE; DROP SCHEMA IF EXISTS storage CASCADE;',
     ]);
-    await psql(managedSchemaPath, 'Managed Auth and Storage schema', 'supabase_admin');
+    const deferredTriggers = [];
+    const managedSchema = (await readFile(managedSchemaPath, 'utf8')).replace(
+      /CREATE TRIGGER\b[\s\S]*?;\r?\n/g,
+      (statement) => { deferredTriggers.push(statement); return ''; },
+    );
+    const managedTablesPath = join(tempDirectory, 'managed-tables.sql');
+    await writeFile(managedTablesPath, managedSchema, { flag: 'wx' });
+    deferredManagedTriggersPath = join(tempDirectory, 'managed-triggers.sql');
+    await writeFile(deferredManagedTriggersPath, deferredTriggers.join('\n'), { flag: 'wx' });
+    await psql(managedTablesPath, 'Managed Auth and Storage schema', 'supabase_admin');
   }
   await psql(join(extracted, 'schema.sql'), 'Schema', 'supabase_admin');
+  if (deferredManagedTriggersPath) {
+    await psql(deferredManagedTriggersPath, 'Managed Auth and Storage triggers', 'supabase_admin');
+  }
   const inventoryBefore = await command('docker', [
     'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
     '-c', 'select count(*) from public.inventory',
