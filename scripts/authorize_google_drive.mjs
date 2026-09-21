@@ -6,9 +6,12 @@ import { google } from 'googleapis';
 const host = '127.0.0.1';
 const scope = 'https://www.googleapis.com/auth/drive.file';
 const maxBodyBytes = 16 * 1024;
+const tokenRetentionMs = 30 * 60 * 1000;
 
 let oauthClient = null;
 let expectedState = null;
+let pendingRefreshToken = null;
+let copyNonce = null;
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -53,6 +56,17 @@ function copyToClipboard(value) {
     child.on('close', (code) => code === 0 ? resolve() : reject(new Error(stderr || `clip.exe exited with ${code}`)));
     child.stdin.end(value);
   });
+}
+
+function copyPage(message) {
+  return `
+    <p class="ok">${escapeHtml(message)}</p>
+    <p>In GitHub Actions repository secrets, add <strong>GOOGLE_DRIVE_REFRESH_TOKEN</strong> and paste the clipboard into its Secret field. Do not paste the token into chat or a note.</p>
+    <form method="post" action="/copy" autocomplete="off">
+      <input type="hidden" name="nonce" value="${escapeHtml(copyNonce)}">
+      <button type="submit">Copy refresh token again</button>
+    </form>
+    <p class="note">If the clipboard is replaced before you paste, return here and click the button again. This page remains available for 30 minutes; the token is kept only in memory, never written to disk.</p>`;
 }
 
 const server = createServer(async (request, response) => {
@@ -115,14 +129,28 @@ const server = createServer(async (request, response) => {
 
       const { tokens } = await oauthClient.getToken(code);
       if (!tokens.refresh_token) throw new Error('Google did not return a refresh token. Revoke the existing app grant and authorize again.');
-      await copyToClipboard(tokens.refresh_token);
+      pendingRefreshToken = tokens.refresh_token;
+      copyNonce = randomBytes(24).toString('hex');
+      await copyToClipboard(pendingRefreshToken);
       oauthClient = null;
       expectedState = null;
-      sendHtml(response, 200, 'Authorization complete', `
-        <p class="ok">The Google Drive refresh token is now on the Windows clipboard.</p>
-        <p>Immediately save it as the GitHub repository secret <strong>GOOGLE_DRIVE_REFRESH_TOKEN</strong>. Do not paste it into chat or a note.</p>
-        <p>You may close this tab. This local helper will stop automatically.</p>`);
-      setTimeout(() => server.close(), 60_000).unref();
+      sendHtml(response, 200, 'Authorization complete', copyPage('The Google Drive refresh token was copied to the Windows clipboard.'));
+      setTimeout(() => {
+        pendingRefreshToken = null;
+        copyNonce = null;
+        server.close();
+      }, tokenRetentionMs).unref();
+      return;
+    }
+
+    if (request.method === 'POST' && currentUrl.pathname === '/copy') {
+      const form = await readForm(request);
+      if (!pendingRefreshToken || !copyNonce || form.get('nonce') !== copyNonce) {
+        sendHtml(response, 410, 'Token unavailable', '<p>The local token has expired. Restart the helper and authorize Google Drive again.</p>');
+        return;
+      }
+      await copyToClipboard(pendingRefreshToken);
+      sendHtml(response, 200, 'Authorization complete', copyPage('The refresh token was copied again. Paste it into GitHub now.'));
       return;
     }
 

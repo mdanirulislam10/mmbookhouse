@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 
@@ -70,7 +70,7 @@ function run(command, args) {
 
 async function createZip(outputPath, files, manifest) {
   const output = createWriteStream(outputPath, { flags: 'wx' });
-  const archive = archiver('zip', { zlib: { level: 9 } });
+  const archive = new ZipArchive({ zlib: { level: 9 } });
   const completion = new Promise((resolve, reject) => {
     output.once('close', resolve);
     output.once('error', reject);
