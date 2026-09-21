@@ -42,11 +42,11 @@ function command(program, args, { inputPath } = {}) {
   });
 }
 
-async function psql(filePath, stage) {
+async function psql(filePath, stage, user = 'postgres') {
   try {
     await command('docker', [
       'exec', '-i', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
-      '-U', 'postgres', '-d', 'postgres',
+      '-U', user, '-d', 'postgres',
     ], { inputPath: filePath });
     console.log(`${stage} restored`);
   } catch (error) {
@@ -133,7 +133,7 @@ try {
   ).join('\n');
   const bootstrapPath = join(tempDirectory, 'platform-roles.sql');
   await writeFile(bootstrapPath, roleBootstrap);
-  await psql(bootstrapPath, 'Isolated platform roles');
+  await psql(bootstrapPath, 'Isolated platform roles', 'supabase_admin');
   await psql(join(extracted, 'roles.sql'), 'Roles');
   await psql(join(extracted, 'schema.sql'), 'Schema');
   await psql(join(extracted, 'data.sql'), 'Data');
