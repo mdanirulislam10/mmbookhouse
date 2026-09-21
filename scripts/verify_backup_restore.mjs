@@ -56,7 +56,9 @@ async function psql(filePath, stage) {
       : /permission denied/i.test(detail) ? 'permission mismatch'
       : /foreign key constraint/i.test(detail) ? 'foreign-key order problem'
       : 'SQL restore error';
-    throw new Error(`${stage} failed (${type}); production was not touched.`);
+    const sqlError = detail.split('\n').find((line) => /(?:ERROR|FATAL):/i.test(line));
+    const safeError = sqlError?.replace(/'[^']*'|"[^"]*"/g, '[identifier]').slice(0, 250);
+    throw new Error(`${stage} failed (${type}${safeError ? `: ${safeError}` : ''}); production was not touched.`);
   }
 }
 
