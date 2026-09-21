@@ -184,11 +184,12 @@ try {
   }
   await psql(join(extracted, 'roles.sql'), 'Roles', 'supabase_admin');
   if (fullRestore && hasManagedSchema) {
-    const managedSchema = (await readFile(managedSchemaPath, 'utf8'))
-      .replace(/CREATE SCHEMA (auth|storage);/g, 'CREATE SCHEMA IF NOT EXISTS $1;');
-    const compatibleManagedSchemaPath = join(tempDirectory, 'compatible-managed-schema.sql');
-    await writeFile(compatibleManagedSchemaPath, managedSchema, { flag: 'wx' });
-    await psql(compatibleManagedSchemaPath, 'Managed Auth and Storage schema', 'supabase_admin');
+    await command('docker', [
+      'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
+      '-U', 'supabase_admin', '-d', 'postgres',
+      '-c', 'DROP SCHEMA IF EXISTS auth CASCADE; DROP SCHEMA IF EXISTS storage CASCADE;',
+    ]);
+    await psql(managedSchemaPath, 'Managed Auth and Storage schema', 'supabase_admin');
   }
   await psql(join(extracted, 'schema.sql'), 'Schema', 'supabase_admin');
   const inventoryBefore = await command('docker', [
