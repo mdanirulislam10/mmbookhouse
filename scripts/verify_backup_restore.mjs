@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -115,6 +115,8 @@ try {
 
   const containerName = `mmbookhouse-restore-drill-${randomBytes(4).toString('hex')}`;
   const password = randomBytes(24).toString('hex');
+  const managedSchemaPath = join(extracted, 'managed-schema.sql');
+  const hasManagedSchema = await access(managedSchemaPath).then(() => true, () => false);
   if (fullRestore) {
     networkName = `${containerName}-net`;
     await command('docker', ['network', 'create', '--internal', networkName]);
@@ -154,7 +156,7 @@ try {
   const bootstrapPath = join(tempDirectory, 'platform-roles.sql');
   await writeFile(bootstrapPath, roleBootstrap);
   await psql(bootstrapPath, 'Isolated platform roles', 'supabase_admin');
-  if (fullRestore) {
+  if (fullRestore && !hasManagedSchema) {
     await command('docker', [
       'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
       '-U', 'supabase_admin', '-d', 'postgres',
@@ -181,6 +183,9 @@ try {
     console.log('Official Supabase Auth migrations applied in isolated database');
   }
   await psql(join(extracted, 'roles.sql'), 'Roles', 'supabase_admin');
+  if (fullRestore && hasManagedSchema) {
+    await psql(managedSchemaPath, 'Managed Auth and Storage schema', 'supabase_admin');
+  }
   await psql(join(extracted, 'schema.sql'), 'Schema', 'supabase_admin');
   const inventoryBefore = await command('docker', [
     'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',

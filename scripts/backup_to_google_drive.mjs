@@ -140,6 +140,7 @@ async function main() {
   temporaryDirectory = await mkdtemp(join(tmpdir(), 'mme-backup-'));
   const rolesPath = join(temporaryDirectory, 'roles.sql');
   const schemaPath = join(temporaryDirectory, 'schema.sql');
+  const managedSchemaPath = join(temporaryDirectory, 'managed-schema.sql');
   const dataPath = join(temporaryDirectory, 'data.sql');
   const archivePath = join(temporaryDirectory, 'database-backup.zip');
   const timestamp = backupTimestamp();
@@ -150,6 +151,11 @@ async function main() {
 
   await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', rolesPath, '--role-only']);
   await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', schemaPath]);
+  await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', managedSchemaPath, '--schema', 'auth,storage']);
+  const managedSchema = await readFile(managedSchemaPath, 'utf8');
+  if (!/CREATE TABLE (?:IF NOT EXISTS )?auth\.users\b/i.test(managedSchema)) {
+    throw new Error('Managed Auth schema dump is incomplete; refusing to upload an un-restorable backup.');
+  }
   await run(cli, [
     'db', 'dump', '--db-url', databaseUrl, '-f', dataPath, '--data-only', '--use-copy',
     '-x', 'storage.buckets_vectors', '-x', 'storage.vector_indexes',
@@ -158,13 +164,14 @@ async function main() {
   await createZip(archivePath, [
     { path: rolesPath, name: 'roles.sql' },
     { path: schemaPath, name: 'schema.sql' },
+    { path: managedSchemaPath, name: 'managed-schema.sql' },
     { path: dataPath, name: 'data.sql' },
   ], {
     project: 'MMM Enterprise',
     createdAt: new Date().toISOString(),
     timezone: 'Asia/Kolkata',
-    formatVersion: 1,
-    restoreOrder: ['roles.sql', 'schema.sql', 'data.sql'],
+    formatVersion: 2,
+    restoreOrder: ['roles.sql', 'managed-schema.sql', 'schema.sql', 'data.sql'],
     note: 'Logical PostgreSQL backup. Supabase Storage object files require a separate backup.',
   });
 
