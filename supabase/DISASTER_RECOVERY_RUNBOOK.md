@@ -87,8 +87,22 @@ developer:
 3. Run `npm run backup:decrypt -- path/to/backup.zip.enc`.
 4. Extract the resulting ZIP and restore into an isolated test project in this order:
    `roles.sql`, `schema.sql`, then `data.sql`.
+   The target must have a compatible Supabase Auth/Storage schema. Execute
+   `SET session_replication_role = replica` in the **same psql session** that
+   loads `data.sql`, so import triggers do not create duplicate rows.
 5. Validate critical row counts and application login/order flows. Never point this
    drill at production.
+
+The manual GitHub Actions workflow `verify-backup-restore.yml` performs a narrower,
+network-isolated **public application-data** restore check. It downloads the newest
+encrypted Drive backup, checks its SHA-256, decrypts it, and restores roles, schema,
+and public-table data to a temporary Supabase PostgreSQL container. Its success does
+**not** verify Auth/Storage data, Storage objects, login, or a full project recovery.
+The September 21, 2026 drill restored 58 public tables and 1,003 books:
+https://github.com/mdanirulislam10/mmbookhouse/actions/runs/35599635467 .
+The full-data attempt stopped because the managed target's `auth.audit_log_entries`
+lacked the source's `ip_address` column. A full drill needs a disposable Supabase
+project with matching managed-service migrations before restoring `data.sql`.
 
 ### Failure handling
 
