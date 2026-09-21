@@ -66,9 +66,10 @@ async function psql(filePath, stage, user = 'postgres') {
       : /permission denied/i.test(detail) ? 'permission mismatch'
       : /foreign key constraint/i.test(detail) ? 'foreign-key order problem'
       : 'SQL restore error';
-    const sqlError = detail.split('\n').find((line) => /(?:ERROR|FATAL):|psql:|invalid command/i.test(line));
+    const sqlError = detail.split('\n').find((line) => /(?:ERROR|FATAL):|psql:|invalid command/i.test(line))
+      || detail.split('\n').find((line) => line.trim());
     const safeError = sqlError?.replace(/'[^']*'/g, '[value]').slice(0, 250);
-    throw new Error(`${stage} failed (${type}${safeError ? `: ${safeError}` : ''}); production was not touched.`);
+    throw new Error(`${stage} failed (${type}; ${error.message}${safeError ? `: ${safeError}` : ''}); production was not touched.`);
   }
 }
 
@@ -128,6 +129,10 @@ try {
     }
   }
   if (!ready) throw new Error('Isolated PostgreSQL did not start.');
+  // The entrypoint briefly starts a temporary server while applying its init
+  // scripts. Give it time to hand over to the final server before restore.
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+  await command('docker', ['exec', containerId, 'pg_isready', '-U', 'postgres']);
   console.log('Isolated PostgreSQL started (no network exposure)');
   // The image ships Supabase extensions, but a bare container does not run the
   // full self-hosted role bootstrap. The platform roles are intentionally
