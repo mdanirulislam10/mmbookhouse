@@ -103,7 +103,7 @@ async function sha256For(path) {
 async function getDriveFolder(drive) {
   if (process.env.GOOGLE_DRIVE_FOLDER_ID) return process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-  const escapedName = (process.env.GOOGLE_DRIVE_FOLDER_NAME || 'MMM Enterprise').replace(/'/g, "\\'");
+  const escapedName = (process.env.GOOGLE_DRIVE_FOLDER_NAME || 'mmbookhousebackup').replace(/'/g, "\\'");
   const existing = await drive.files.list({
     q: `name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
     fields: 'files(id,name)',
@@ -113,7 +113,7 @@ async function getDriveFolder(drive) {
   if (existing.data.files?.[0]?.id) return existing.data.files[0].id;
 
   const created = await drive.files.create({
-    requestBody: { name: process.env.GOOGLE_DRIVE_FOLDER_NAME || 'MMM Enterprise', mimeType: 'application/vnd.google-apps.folder' },
+    requestBody: { name: process.env.GOOGLE_DRIVE_FOLDER_NAME || 'mmbookhousebackup', mimeType: 'application/vnd.google-apps.folder' },
     fields: 'id',
   });
   if (!created.data.id) throw new Error('Google Drive folder could not be created.');
