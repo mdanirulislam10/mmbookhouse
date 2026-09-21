@@ -44,10 +44,13 @@ function command(program, args, { inputPath } = {}) {
 
 async function psql(filePath, stage, user = 'postgres') {
   try {
-    await command('docker', [
+    const args = [
       'exec', '-i', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
       '-U', user, '-d', 'postgres',
-    ], { inputPath: filePath });
+    ];
+    if (stage === 'Data') args.push('-c', 'SET session_replication_role = replica');
+    args.push('-f', '-');
+    await command('docker', args, { inputPath: filePath });
     console.log(`${stage} restored`);
   } catch (error) {
     const detail = error.detail || '';
@@ -134,9 +137,9 @@ try {
   const bootstrapPath = join(tempDirectory, 'platform-roles.sql');
   await writeFile(bootstrapPath, roleBootstrap);
   await psql(bootstrapPath, 'Isolated platform roles', 'supabase_admin');
-  await psql(join(extracted, 'roles.sql'), 'Roles');
-  await psql(join(extracted, 'schema.sql'), 'Schema');
-  await psql(join(extracted, 'data.sql'), 'Data');
+  await psql(join(extracted, 'roles.sql'), 'Roles', 'supabase_admin');
+  await psql(join(extracted, 'schema.sql'), 'Schema', 'supabase_admin');
+  await psql(join(extracted, 'data.sql'), 'Data', 'supabase_admin');
   const tableCount = Number(await command('docker', [
     'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'postgres', '-d', 'postgres',
     '-c', "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'",
