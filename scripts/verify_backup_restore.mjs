@@ -146,13 +146,23 @@ try {
   await psql(bootstrapPath, 'Isolated platform roles', 'supabase_admin');
   await psql(join(extracted, 'roles.sql'), 'Roles', 'supabase_admin');
   await psql(join(extracted, 'schema.sql'), 'Schema', 'supabase_admin');
-  await psql(join(extracted, 'data.sql'), 'Data', 'supabase_admin');
+  const publicDataPath = join(tempDirectory, 'public-data.sql');
+  await command('python3', [
+    'scripts/filter_public_dump_for_drill.py', join(extracted, 'data.sql'), publicDataPath,
+  ]);
+  await psql(publicDataPath, 'Public application data', 'supabase_admin');
   const tableCount = Number(await command('docker', [
     'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'postgres', '-d', 'postgres',
     '-c', "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'",
   ]));
   if (!Number.isInteger(tableCount) || tableCount < 1) throw new Error('Restore produced no public tables.');
-  console.log(`RESTORE DRILL PASSED: roles, schema, and data loaded into isolated PostgreSQL (${tableCount} public tables).`);
+  const bookCount = Number(await command('docker', [
+    'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+    '-c', 'select count(*) from public.books',
+  ]));
+  if (!Number.isInteger(bookCount) || bookCount < 1) throw new Error('Restore produced no books.');
+  console.log(`PUBLIC APP-DATA RESTORE PASSED: ${tableCount} public tables, ${bookCount} books in isolated PostgreSQL.`);
+  console.log('NOT A FULL SUPABASE RESTORE: managed Auth/Storage data requires a matching target schema.');
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
