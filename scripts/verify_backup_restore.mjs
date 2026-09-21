@@ -37,7 +37,7 @@ function command(program, args, { inputPath } = {}) {
     }
     child.once('close', (code) => {
       if (code === 0) resolve(stdout.trim());
-      else reject(Object.assign(new Error(`${program} exited with code ${code}`), { detail: stderr }));
+      else reject(Object.assign(new Error(`${program} exited with code ${code}`), { detail: `${stderr}\n${stdout}` }));
     });
   });
 }
@@ -56,7 +56,7 @@ async function psql(filePath, stage) {
       : /permission denied/i.test(detail) ? 'permission mismatch'
       : /foreign key constraint/i.test(detail) ? 'foreign-key order problem'
       : 'SQL restore error';
-    const sqlError = detail.split('\n').find((line) => /(?:ERROR|FATAL):/i.test(line));
+    const sqlError = detail.split('\n').find((line) => /(?:ERROR|FATAL):|psql:|invalid command/i.test(line));
     const safeError = sqlError?.replace(/'[^']*'/g, '[value]').slice(0, 250);
     throw new Error(`${stage} failed (${type}${safeError ? `: ${safeError}` : ''}); production was not touched.`);
   }
