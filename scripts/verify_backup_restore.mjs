@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -119,6 +119,21 @@ try {
   }
   if (!ready) throw new Error('Isolated PostgreSQL did not start.');
   console.log('Isolated PostgreSQL started (no network exposure)');
+  // The image ships Supabase extensions, but a bare container does not run the
+  // full self-hosted role bootstrap. The platform roles are intentionally
+  // excluded from the Supabase CLI roles dump, so provision them only here.
+  const platformRoles = [
+    'anon', 'authenticated', 'authenticator', 'service_role', 'dashboard_user',
+    'supabase_admin', 'supabase_auth_admin', 'supabase_storage_admin',
+    'supabase_realtime_admin', 'supabase_replication_admin',
+    'supabase_read_only_user', 'pgbouncer',
+  ];
+  const roleBootstrap = platformRoles.map((role) =>
+    `SELECT 'CREATE ROLE ${role}' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}')\\gexec`
+  ).join('\n');
+  const bootstrapPath = join(tempDirectory, 'platform-roles.sql');
+  await writeFile(bootstrapPath, roleBootstrap);
+  await psql(bootstrapPath, 'Isolated platform roles');
   await psql(join(extracted, 'roles.sql'), 'Roles');
   await psql(join(extracted, 'schema.sql'), 'Schema');
   await psql(join(extracted, 'data.sql'), 'Data');
