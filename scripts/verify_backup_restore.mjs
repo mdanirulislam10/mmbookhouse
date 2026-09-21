@@ -163,11 +163,19 @@ try {
     try {
       await command('docker', [
         'run', '--rm', '--network', networkName,
+        '--env', 'GOTRUE_DB_DRIVER=postgres',
+        '--env', 'GOTRUE_SITE_URL=http://localhost',
+        '--env', 'API_EXTERNAL_URL=http://localhost',
         '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${containerName}:5432/postgres`,
         'supabase/gotrue:v2.196.0', 'auth', 'migrate',
       ]);
     } catch (error) {
-      throw new Error(`Isolated Supabase Auth migration failed (${error.message}); production was not touched.`);
+      const diagnostic = String(error.detail || '').split('\n')
+        .find((line) => /(?:error|fatal|failed|invalid|unknown)/i.test(line))
+        ?.replaceAll(password, '[isolated password]')
+        .replace(/postgres(?:ql)?:\/\/\S+/gi, '[isolated database URL]')
+        .slice(0, 300);
+      throw new Error(`Isolated Supabase Auth migration failed (${error.message}${diagnostic ? `: ${diagnostic}` : ''}); production was not touched.`);
     }
     console.log('Official Supabase Auth migrations applied in isolated database');
   }
