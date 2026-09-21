@@ -18,7 +18,7 @@ for (const name of required) {
 }
 
 const folderName = 'mmbookhousebackup';
-const image = 'postgres:17';
+const image = 'ghcr.io/supabase/postgres:17.6.1.167';
 let tempDirectory;
 let containerId;
 
