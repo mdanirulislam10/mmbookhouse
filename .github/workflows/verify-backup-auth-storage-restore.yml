@@ -1,6 +1,10 @@
 name: Verify backup Auth sign-in and Storage file restore
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verify-backup-auth-storage-restore.yml
   workflow_dispatch:
 
 concurrency:
