@@ -26,7 +26,7 @@ let networkName;
 let authContainerId;
 let isolatedDatabasePassword;
 
-function command(program, args, { inputPath } = {}) {
+function command(program, args, { inputPath, includeStderr = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(program, args, { shell: false, stdio: [inputPath ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
     let stdout = '';
@@ -47,7 +47,7 @@ function command(program, args, { inputPath } = {}) {
       child.once('close', () => source.destroy());
     }
     child.once('close', (code) => {
-      if (code === 0) resolve(stdout.trim());
+      if (code === 0) resolve((includeStderr ? `${stdout}\n${stderr}` : stdout).trim());
       else reject(Object.assign(new Error(`${program} exited with code ${code}`), { detail: `${stderr}\n${stdout}` }));
     });
   });
@@ -299,13 +299,14 @@ try {
       let portOutput = '';
       try {
         portOutput = await command('docker', ['port', authContainerId, '9999/tcp']);
-      } catch {
-        // The startup diagnostic below will report the container log.
+      } catch (error) {
+        portOutput = String(error.detail || error.message);
       }
       const authPort = /:(\d+)\s*$/.exec(portOutput)?.[1];
       if (!authPort) {
-        const logs = await command('docker', ['logs', authContainerId]).catch((error) => error.detail || error.message);
-        const diagnostic = String(logs)
+        const logs = await command('docker', ['logs', authContainerId], { includeStderr: true })
+          .catch((error) => error.detail || error.message);
+        const diagnostic = `${portOutput}\n${logs}`
           .replaceAll(isolatedDatabasePassword, '[isolated password]')
           .replace(/postgres(?:ql)?:\/\/\S+/gi, '[isolated database URL]')
           .split('\n')
