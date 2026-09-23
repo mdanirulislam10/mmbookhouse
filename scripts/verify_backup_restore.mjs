@@ -169,6 +169,7 @@ try {
       await command('docker', [
         'run', '--rm', '--network', networkName,
         '--env', 'GOTRUE_DB_DRIVER=postgres',
+        '--env', 'GOTRUE_DB_AFTER_CONNECT_QUERY=SET search_path TO auth,public',
         '--env', 'GOTRUE_SITE_URL=http://localhost',
         '--env', 'API_EXTERNAL_URL=http://localhost',
         '--env', `GOTRUE_JWT_SECRET=${randomBytes(32).toString('hex')}`,
@@ -290,6 +291,7 @@ try {
         'run', '--detach', '--network', networkName, '--name', authContainerName,
         '--publish', '127.0.0.1::9999',
         '--env', 'GOTRUE_DB_DRIVER=postgres',
+        '--env', 'GOTRUE_DB_AFTER_CONNECT_QUERY=SET search_path TO auth,public',
         '--env', 'GOTRUE_SITE_URL=http://localhost',
         '--env', 'API_EXTERNAL_URL=http://localhost',
         '--env', `GOTRUE_JWT_SECRET=${jwtSecret}`,
