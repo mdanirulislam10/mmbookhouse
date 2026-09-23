@@ -283,7 +283,13 @@ try {
       await command('docker', [
         'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
         '-U', 'supabase_admin', '-d', 'postgres',
-        '-c', `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${isolatedDatabasePassword}'`,
+        '-c', [
+          'GRANT USAGE, CREATE ON SCHEMA auth TO supabase_auth_admin',
+          'GRANT ALL ON ALL TABLES IN SCHEMA auth TO supabase_auth_admin',
+          'GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO supabase_auth_admin',
+          'ALTER ROLE supabase_auth_admin SET search_path TO auth, public',
+          `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${isolatedDatabasePassword}'`,
+        ].join('; ') + ';',
       ]);
       const jwtSecret = randomBytes(32).toString('hex');
       const authContainerName = `${containerName}-auth`;
