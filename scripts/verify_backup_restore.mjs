@@ -23,6 +23,7 @@ const fullRestore = process.env.RESTORE_SCOPE === 'full';
 let tempDirectory;
 let containerId;
 let networkName;
+let authContainerId;
 
 function command(program, args, { inputPath } = {}) {
   return new Promise((resolve, reject) => {
@@ -111,6 +112,7 @@ try {
   await command(process.execPath, ['scripts/decrypt_backup.mjs', encryptedPath, zipPath]);
   const extracted = join(tempDirectory, 'extracted');
   await command('python3', ['scripts/extract_backup_for_drill.py', zipPath, extracted]);
+  const manifest = JSON.parse(await readFile(join(extracted, 'manifest.json'), 'utf8'));
   console.log('Backup decrypted and archive verified');
 
   const containerName = `mmbookhouse-restore-drill-${randomBytes(4).toString('hex')}`;
@@ -244,8 +246,85 @@ try {
       'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
       '-c', 'select count(*) from storage.objects',
     ]);
+    const archivedStorageObjects = manifest.storageObjects || [];
+    for (const object of archivedStorageObjects) {
+      const bytes = await readFile(join(extracted, object.archiveName));
+      const hash = createHash('sha256').update(bytes).digest('hex');
+      if (hash !== object.sha256 || bytes.length !== object.size) {
+        throw new Error(`Storage object recovery verification failed for ${object.bucketId}/${object.name}.`);
+      }
+    }
+    const expectedStorageBucket = process.env.RESTORE_TEST_STORAGE_BUCKET;
+    const expectedStorageName = process.env.RESTORE_TEST_STORAGE_OBJECT;
+    const expectedStorageHash = process.env.RESTORE_TEST_STORAGE_SHA256;
+    if (expectedStorageBucket || expectedStorageName || expectedStorageHash) {
+      if (!expectedStorageBucket || !expectedStorageName || !expectedStorageHash) {
+        throw new Error('Incomplete expected Storage fixture configuration.');
+      }
+      const recovered = archivedStorageObjects.find((object) =>
+        object.bucketId === expectedStorageBucket && object.name === expectedStorageName
+      );
+      if (!recovered || recovered.sha256 !== expectedStorageHash) {
+        throw new Error('Expected demo Storage object was not recovered from the encrypted backup.');
+      }
+      const bucketSql = expectedStorageBucket.replaceAll("'", "''");
+      const nameSql = expectedStorageName.replaceAll("'", "''");
+      const metadataRows = Number(await command('docker', [
+        'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+        '-c', `select count(*) from storage.objects where bucket_id='${bucketSql}' and name='${nameSql}'`,
+      ]));
+      if (metadataRows !== 1) throw new Error('Expected demo Storage metadata row was not restored.');
+      console.log(`STORAGE FILE RECOVERY PASSED: ${recovered.bucketId}/${recovered.name} (${recovered.size} bytes).`);
+    }
+    if (process.env.RESTORE_TEST_EMAIL && process.env.RESTORE_TEST_PASSWORD) {
+      await command('docker', [
+        'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
+        '-U', 'supabase_admin', '-d', 'postgres',
+        '-c', `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${password}'`,
+      ]);
+      const jwtSecret = randomBytes(32).toString('hex');
+      const authContainerName = `${containerName}-auth`;
+      authContainerId = await command('docker', [
+        'run', '--detach', '--rm', '--network', networkName, '--name', authContainerName,
+        '--publish', '127.0.0.1::9999',
+        '--env', 'GOTRUE_DB_DRIVER=postgres',
+        '--env', 'GOTRUE_SITE_URL=http://localhost',
+        '--env', 'API_EXTERNAL_URL=http://localhost',
+        '--env', `GOTRUE_JWT_SECRET=${jwtSecret}`,
+        '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${containerName}:5432/postgres`,
+        'supabase/gotrue:v2.196.0', 'auth',
+      ]);
+      const portOutput = await command('docker', ['port', authContainerId, '9999/tcp']);
+      const authPort = /:(\d+)\s*$/.exec(portOutput)?.[1];
+      if (!authPort) throw new Error('Could not resolve isolated Auth service port.');
+      let signedIn = false;
+      for (let attempt = 0; attempt < 30; attempt++) {
+        try {
+          const response = await fetch(`http://127.0.0.1:${authPort}/token?grant_type=password`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              email: process.env.RESTORE_TEST_EMAIL,
+              password: process.env.RESTORE_TEST_PASSWORD,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error_description || result.msg || `HTTP ${response.status}`);
+          if (!result.access_token || result.user?.email !== process.env.RESTORE_TEST_EMAIL) {
+            throw new Error('Auth response did not contain the restored demo user.');
+          }
+          signedIn = true;
+          break;
+        } catch (error) {
+          if (attempt === 29) throw new Error(`RESTORED AUTH SIGN-IN FAILED: ${error.message}`);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+      if (!signedIn) throw new Error('RESTORED AUTH SIGN-IN FAILED.');
+      console.log('RESTORED AUTH SIGN-IN PASSED for the demo user.');
+    }
     console.log(`FULL DATABASE RESTORE PASSED: ${tableCount} public tables, ${bookCount} books, ${authUsers} Auth users, ${storageObjects} Storage metadata rows.`);
-    console.log('Storage object files and end-to-end sign-in remain outside this database-only drill.');
+    console.log(`${archivedStorageObjects.length} Storage object files recovered and checksum-verified.`);
   } else {
     console.log(`PUBLIC APP-DATA RESTORE PASSED: ${tableCount} public tables, ${bookCount} books in isolated PostgreSQL.`);
     console.log('NOT A FULL SUPABASE RESTORE: managed Auth/Storage data requires a matching target schema.');
@@ -254,6 +333,7 @@ try {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
+  if (authContainerId) await command('docker', ['stop', authContainerId]).catch(() => {});
   if (containerId) await command('docker', ['stop', containerId]).catch(() => {});
   if (networkName) await command('docker', ['network', 'rm', networkName]).catch(() => {});
   if (tempDirectory) await rm(tempDirectory, { recursive: true, force: true });

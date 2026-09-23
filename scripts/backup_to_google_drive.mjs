@@ -1,6 +1,6 @@
 import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { appendFile, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -113,6 +113,53 @@ async function createZip(outputPath, files, manifest) {
   await completion;
 }
 
+async function listStorageObjects(bucketId, prefix = '') {
+  const objects = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.storage.from(bucketId).list(prefix, {
+      limit: 1000,
+      offset,
+      sortBy: { column: 'name', order: 'asc' },
+    });
+    if (error) throw new Error(`Could not list Storage bucket ${bucketId}: ${error.message}`);
+    for (const entry of data || []) {
+      const name = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.id) objects.push(name);
+      else objects.push(...await listStorageObjects(bucketId, name));
+    }
+    if (!data || data.length < 1000) break;
+  }
+  return objects;
+}
+
+async function downloadStorageObjects(directory) {
+  await mkdir(directory, { recursive: true });
+  const { data: buckets, error } = await supabase.storage.listBuckets();
+  if (error) throw new Error(`Could not list Storage buckets: ${error.message}`);
+  const manifest = [];
+  for (const bucket of buckets || []) {
+    for (const name of await listStorageObjects(bucket.id)) {
+      const { data, error: downloadError } = await supabase.storage.from(bucket.id).download(name);
+      if (downloadError || !data) {
+        throw new Error(`Could not download Storage object ${bucket.id}/${name}: ${downloadError?.message || 'empty response'}`);
+      }
+      const bytes = Buffer.from(await data.arrayBuffer());
+      const archiveName = `storage-objects/${String(manifest.length).padStart(6, '0')}.bin`;
+      const localPath = join(directory, `${String(manifest.length).padStart(6, '0')}.bin`);
+      await writeFile(localPath, bytes, { flag: 'wx' });
+      manifest.push({
+        bucketId: bucket.id,
+        bucketPublic: bucket.public,
+        name,
+        archiveName,
+        size: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      });
+    }
+  }
+  return manifest;
+}
+
 async function encryptArchive(inputPath, outputPath) {
   const key = Buffer.from(process.env.BACKUP_ENCRYPTION_KEY, 'hex');
   const iv = randomBytes(12);
@@ -172,6 +219,7 @@ async function main() {
   const schemaPath = join(temporaryDirectory, 'schema.sql');
   const managedSchemaPath = join(temporaryDirectory, 'managed-schema.sql');
   const dataPath = join(temporaryDirectory, 'data.sql');
+  const storageObjectsPath = join(temporaryDirectory, 'storage-objects');
   const archivePath = join(temporaryDirectory, 'database-backup.zip');
   const timestamp = backupTimestamp();
   const encryptedName = `mmbookhousebackup_${timestamp}.zip.enc`;
@@ -190,19 +238,26 @@ async function main() {
     'db', 'dump', '--db-url', databaseUrl, '-f', dataPath, '--data-only', '--use-copy',
     '-x', 'storage.buckets_vectors', '-x', 'storage.vector_indexes',
   ]);
+  const storageObjects = await downloadStorageObjects(storageObjectsPath);
 
-  await createZip(archivePath, [
+  const archiveFiles = [
     { path: rolesPath, name: 'roles.sql' },
     { path: schemaPath, name: 'schema.sql' },
     { path: managedSchemaPath, name: 'managed-schema.sql' },
     { path: dataPath, name: 'data.sql' },
-  ], {
+    ...storageObjects.map((object) => ({
+      path: join(storageObjectsPath, object.archiveName.split('/').at(-1)),
+      name: object.archiveName,
+    })),
+  ];
+  await createZip(archivePath, archiveFiles, {
     project: 'MMM Enterprise',
     createdAt: new Date().toISOString(),
     timezone: 'Asia/Kolkata',
-    formatVersion: 2,
+    formatVersion: 3,
     restoreOrder: ['roles.sql', 'managed-schema.sql', 'schema.sql', 'data.sql'],
-    note: 'Logical PostgreSQL backup. Supabase Storage object files require a separate backup.',
+    storageObjects,
+    note: 'Logical PostgreSQL backup with Supabase Storage object bytes.',
   });
 
   await encryptArchive(archivePath, encryptedPath);
