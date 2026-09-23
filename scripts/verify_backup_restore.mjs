@@ -335,7 +335,21 @@ try {
           signedIn = true;
           break;
         } catch (error) {
-          if (attempt === 29) throw new Error(`RESTORED AUTH SIGN-IN FAILED: ${error.message}`);
+          if (attempt === 29) {
+            const logs = await command('docker', ['logs', '--tail', '80', authContainerId], { includeStderr: true })
+              .catch((logError) => logError.detail || logError.message);
+            const state = await command('docker', ['inspect', '--format', '{{.State.Status}} {{.State.ExitCode}}', authContainerId])
+              .catch((inspectError) => inspectError.detail || inspectError.message);
+            const diagnostic = String(logs)
+              .replaceAll(isolatedDatabasePassword, '[isolated password]')
+              .replaceAll(jwtSecret, '[isolated JWT secret]')
+              .replace(/postgres(?:ql)?:\/\/\S+/gi, '[isolated database URL]')
+              .split('\n')
+              .map((line) => line.trim())
+              .find((line) => /(?:error|fatal|failed|permission|migration|config|panic)/i.test(line))
+              ?.slice(0, 500) || String(logs).trim().slice(0, 300);
+            throw new Error(`RESTORED AUTH SIGN-IN FAILED (${state.trim()}): ${diagnostic || error.cause?.message || error.message}`);
+          }
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
