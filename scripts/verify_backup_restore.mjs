@@ -275,6 +275,7 @@ try {
       ]));
       if (metadataRows !== 1) throw new Error('Expected demo Storage metadata row was not restored.');
       console.log(`STORAGE FILE RECOVERY PASSED: ${recovered.bucketId}/${recovered.name} (${recovered.size} bytes).`);
+      console.log(`::notice title=Storage file recovery passed::Recovered ${recovered.size} bytes with matching SHA-256 and metadata.`);
     }
     if (process.env.RESTORE_TEST_EMAIL && process.env.RESTORE_TEST_PASSWORD) {
       await command('docker', [
@@ -322,6 +323,7 @@ try {
       }
       if (!signedIn) throw new Error('RESTORED AUTH SIGN-IN FAILED.');
       console.log('RESTORED AUTH SIGN-IN PASSED for the demo user.');
+      console.log('::notice title=Restored Auth sign-in passed::The temporary user signed in successfully against the isolated restored database.');
     }
     console.log(`FULL DATABASE RESTORE PASSED: ${tableCount} public tables, ${bookCount} books, ${authUsers} Auth users, ${storageObjects} Storage metadata rows.`);
     console.log(`${archivedStorageObjects.length} Storage object files recovered and checksum-verified.`);
@@ -332,16 +334,21 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
+  let safeMessage = message;
+  for (const secret of [
+    process.env.RESTORE_TEST_PASSWORD,
+    process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+    process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
+    process.env.BACKUP_ENCRYPTION_KEY,
+  ]) {
+    if (secret) safeMessage = safeMessage.replaceAll(secret, '[redacted]');
+  }
+  const annotationMessage = safeMessage.slice(0, 1000)
+    .replaceAll('%', '%25')
+    .replaceAll('\r', '%0D')
+    .replaceAll('\n', '%0A');
+  console.error(`::error title=Backup restore drill failed::${annotationMessage}`);
   if (process.env.GITHUB_STEP_SUMMARY) {
-    let safeMessage = message;
-    for (const secret of [
-      process.env.RESTORE_TEST_PASSWORD,
-      process.env.GOOGLE_DRIVE_CLIENT_SECRET,
-      process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
-      process.env.BACKUP_ENCRYPTION_KEY,
-    ]) {
-      if (secret) safeMessage = safeMessage.replaceAll(secret, '[redacted]');
-    }
     await appendFile(process.env.GITHUB_STEP_SUMMARY,
       `## Backup restore drill failed\n\n\`${safeMessage.slice(0, 1000)}\`\n`);
   }
