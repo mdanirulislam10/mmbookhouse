@@ -122,7 +122,7 @@ try {
   const hasManagedSchema = await access(managedSchemaPath).then(() => true, () => false);
   if (fullRestore) {
     networkName = `${containerName}-net`;
-    await command('docker', ['network', 'create', '--internal', networkName]);
+    await command('docker', ['network', 'create', networkName]);
   }
   containerId = await command('docker', [
     'run', '--detach', '--rm', '--network', networkName || 'none', '--name', containerName,
@@ -306,14 +306,15 @@ try {
       if (!authPort) {
         const logs = await command('docker', ['logs', authContainerId], { includeStderr: true })
           .catch((error) => error.detail || error.message);
-        const diagnostic = `${portOutput}\n${logs}`
+        const diagnostic = String(logs)
           .replaceAll(isolatedDatabasePassword, '[isolated password]')
           .replace(/postgres(?:ql)?:\/\/\S+/gi, '[isolated database URL]')
           .split('\n')
+          .map((line) => line.trim())
           .find((line) => /(?:error|fatal|failed|permission|migration|config)/i.test(line))
-          ?.trim()
-          .slice(0, 500);
-        throw new Error(`Isolated Auth service did not start${diagnostic ? `: ${diagnostic}` : '.'}`);
+          ?.slice(0, 500) || String(logs).trim().slice(0, 300);
+        const portDiagnostic = portOutput.trim().slice(0, 160);
+        throw new Error(`Isolated Auth service did not start: ${diagnostic || portDiagnostic}`);
       }
       let signedIn = false;
       for (let attempt = 0; attempt < 30; attempt++) {
