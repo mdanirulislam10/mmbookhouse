@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -330,7 +330,21 @@ try {
     console.log('NOT A FULL SUPABASE RESTORE: managed Auth/Storage data requires a matching target schema.');
   }
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(message);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    let safeMessage = message;
+    for (const secret of [
+      process.env.RESTORE_TEST_PASSWORD,
+      process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+      process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
+      process.env.BACKUP_ENCRYPTION_KEY,
+    ]) {
+      if (secret) safeMessage = safeMessage.replaceAll(secret, '[redacted]');
+    }
+    await appendFile(process.env.GITHUB_STEP_SUMMARY,
+      `## Backup restore drill failed\n\n\`${safeMessage.slice(0, 1000)}\`\n`);
+  }
   process.exitCode = 1;
 } finally {
   if (authContainerId) await command('docker', ['stop', authContainerId]).catch(() => {});

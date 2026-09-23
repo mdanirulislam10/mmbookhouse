@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - .github/workflows/verify-backup-auth-storage-restore.yml
+      - scripts/backup_restore_demo_fixture.mjs
+      - scripts/backup_to_google_drive.mjs
+      - scripts/extract_backup_for_drill.py
+      - scripts/verify_backup_restore.mjs
   workflow_dispatch:
 
 concurrency:

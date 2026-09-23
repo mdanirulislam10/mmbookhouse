@@ -72,7 +72,15 @@ async function cleanup() {
   if (bucketError) failures.push(`bucket: ${bucketError.message}`);
   const { error: userError } = await supabase.auth.admin.deleteUser(state.userId);
   if (userError) failures.push(`user: ${userError.message}`);
-  if (failures.length) throw new Error(`Demo cleanup incomplete (${failures.join('; ')}).`);
+  if (failures.length) {
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      await appendFile(process.env.GITHUB_STEP_SUMMARY, '\n## Demo cleanup incomplete\n\nTemporary fixture cleanup needs attention.\n');
+    }
+    throw new Error(`Demo cleanup incomplete (${failures.join('; ')}).`);
+  }
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await appendFile(process.env.GITHUB_STEP_SUMMARY, '\n## Production demo cleanup passed\n\nTemporary Auth user, Storage object, and bucket were removed.\n');
+  }
   console.log('Temporary production demo Auth user, Storage file, and bucket removed.');
 }
 
