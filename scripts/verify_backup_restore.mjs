@@ -229,6 +229,20 @@ try {
     ]);
   }
   await psql(dataPath, fullRestore ? 'Full database data' : 'Public application data', 'supabase_admin');
+  if (fullRestore && manifest.formatVersion >= 4) {
+    await command('docker', [
+      'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
+      '-U', 'supabase_admin', '-d', 'postgres',
+      '-c', 'TRUNCATE auth.schema_migrations',
+    ]);
+    await psql(join(extracted, 'auth-migrations.sql'), 'Auth migration history', 'supabase_admin');
+    const migrationCount = Number(await command('docker', [
+      'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+      '-c', 'select count(*) from auth.schema_migrations',
+    ]));
+    if (migrationCount < 1) throw new Error('Backup did not restore Auth migration history.');
+    console.log(`Restored ${migrationCount} Auth migration records.`);
+  }
   const tableCount = Number(await command('docker', [
     'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'postgres', '-d', 'postgres',
     '-c', "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'",
@@ -298,7 +312,6 @@ try {
         '--publish', '127.0.0.1::9999',
         '--env', 'GOTRUE_DB_DRIVER=postgres',
         '--env', 'GOTRUE_DB_AFTER_CONNECT_QUERY=SET search_path TO auth,public',
-        '--env', 'GOTRUE_DB_MIGRATIONS_PATH=/tmp',
         '--env', 'GOTRUE_SITE_URL=http://localhost',
         '--env', 'API_EXTERNAL_URL=http://localhost',
         '--env', `GOTRUE_JWT_SECRET=${jwtSecret}`,

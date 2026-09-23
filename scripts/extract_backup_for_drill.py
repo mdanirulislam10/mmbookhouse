@@ -14,6 +14,7 @@ orders = {
     1: ["roles.sql", "schema.sql", "data.sql"],
     2: ["roles.sql", "managed-schema.sql", "schema.sql", "data.sql"],
     3: ["roles.sql", "managed-schema.sql", "schema.sql", "data.sql"],
+    4: ["roles.sql", "managed-schema.sql", "schema.sql", "data.sql", "auth-migrations.sql"],
 }
 
 with zipfile.ZipFile(archive) as source:
@@ -23,7 +24,9 @@ with zipfile.ZipFile(archive) as source:
     if order is None or manifest.get("restoreOrder") != order:
         raise SystemExit("Unsupported backup restore order")
     expected = base | ({"managed-schema.sql"} if manifest["formatVersion"] >= 2 else set())
-    if manifest["formatVersion"] == 3:
+    if manifest["formatVersion"] >= 4:
+        expected.add("auth-migrations.sql")
+    if manifest["formatVersion"] >= 3:
         storage_objects = manifest.get("storageObjects")
         if not isinstance(storage_objects, list):
             raise SystemExit("Missing Storage object manifest")

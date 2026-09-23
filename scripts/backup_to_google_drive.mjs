@@ -68,14 +68,14 @@ function run(command, args) {
   });
 }
 
-function dumpManagedSchema(databaseUrl, outputPath) {
+function dumpWithPostgresImage(databaseUrl, outputPath, dumpFlags, label) {
   const parsed = new URL(databaseUrl);
   const args = [
     'run', '--rm', '--entrypoint', 'pg_dump',
     '--env', `PGPASSWORD=${decodeURIComponent(parsed.password)}`,
     '--env', 'PGSSLMODE=require',
     'ghcr.io/supabase/postgres:17.6.1.167',
-    '--schema-only', '--schema=auth', '--schema=storage',
+    ...dumpFlags,
     '--no-owner', '--no-acl', '--no-password',
     '--host', parsed.hostname, '--port', parsed.port || '5432',
     '--username', decodeURIComponent(parsed.username),
@@ -92,7 +92,7 @@ function dumpManagedSchema(databaseUrl, outputPath) {
     output.once('error', reject);
     output.once('finish', () => { finished = true; maybeResolve(); });
     child.once('close', (code) => {
-      if (code !== 0) reject(new Error(`Managed schema export exited with code ${code}`));
+      if (code !== 0) reject(new Error(`${label} export exited with code ${code}`));
       else { exited = true; maybeResolve(); }
     });
   });
@@ -218,6 +218,7 @@ async function main() {
   const rolesPath = join(temporaryDirectory, 'roles.sql');
   const schemaPath = join(temporaryDirectory, 'schema.sql');
   const managedSchemaPath = join(temporaryDirectory, 'managed-schema.sql');
+  const authMigrationsPath = join(temporaryDirectory, 'auth-migrations.sql');
   const dataPath = join(temporaryDirectory, 'data.sql');
   const storageObjectsPath = join(temporaryDirectory, 'storage-objects');
   const archivePath = join(temporaryDirectory, 'database-backup.zip');
@@ -229,7 +230,8 @@ async function main() {
 
   await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', rolesPath, '--role-only']);
   await run(cli, ['db', 'dump', '--db-url', databaseUrl, '-f', schemaPath]);
-  await dumpManagedSchema(databaseUrl, managedSchemaPath);
+  await dumpWithPostgresImage(databaseUrl, managedSchemaPath,
+    ['--schema-only', '--schema=auth', '--schema=storage'], 'Managed schema');
   const managedSchema = await readFile(managedSchemaPath, 'utf8');
   if (!/CREATE TABLE (?:IF NOT EXISTS )?auth\.users\b/i.test(managedSchema)) {
     throw new Error('Managed Auth schema dump is incomplete; refusing to upload an un-restorable backup.');
@@ -238,6 +240,8 @@ async function main() {
     'db', 'dump', '--db-url', databaseUrl, '-f', dataPath, '--data-only', '--use-copy',
     '-x', 'storage.buckets_vectors', '-x', 'storage.vector_indexes',
   ]);
+  await dumpWithPostgresImage(databaseUrl, authMigrationsPath,
+    ['--data-only', '--table=auth.schema_migrations'], 'Auth migration history');
   const storageObjects = await downloadStorageObjects(storageObjectsPath);
 
   const archiveFiles = [
@@ -245,6 +249,7 @@ async function main() {
     { path: schemaPath, name: 'schema.sql' },
     { path: managedSchemaPath, name: 'managed-schema.sql' },
     { path: dataPath, name: 'data.sql' },
+    { path: authMigrationsPath, name: 'auth-migrations.sql' },
     ...storageObjects.map((object) => ({
       path: join(storageObjectsPath, object.archiveName.split('/').at(-1)),
       name: object.archiveName,
@@ -254,8 +259,8 @@ async function main() {
     project: 'MMM Enterprise',
     createdAt: new Date().toISOString(),
     timezone: 'Asia/Kolkata',
-    formatVersion: 3,
-    restoreOrder: ['roles.sql', 'managed-schema.sql', 'schema.sql', 'data.sql'],
+    formatVersion: 4,
+    restoreOrder: ['roles.sql', 'managed-schema.sql', 'schema.sql', 'data.sql', 'auth-migrations.sql'],
     storageObjects,
     note: 'Logical PostgreSQL backup with Supabase Storage object bytes.',
   });
