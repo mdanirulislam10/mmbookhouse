@@ -24,6 +24,7 @@ let tempDirectory;
 let containerId;
 let networkName;
 let authContainerId;
+let isolatedDatabasePassword;
 
 function command(program, args, { inputPath } = {}) {
   return new Promise((resolve, reject) => {
@@ -116,7 +117,7 @@ try {
   console.log('Backup decrypted and archive verified');
 
   const containerName = `mmbookhouse-restore-drill-${randomBytes(4).toString('hex')}`;
-  const password = randomBytes(24).toString('hex');
+  isolatedDatabasePassword = randomBytes(24).toString('hex');
   const managedSchemaPath = join(extracted, 'managed-schema.sql');
   const hasManagedSchema = await access(managedSchemaPath).then(() => true, () => false);
   if (fullRestore) {
@@ -125,7 +126,7 @@ try {
   }
   containerId = await command('docker', [
     'run', '--detach', '--rm', '--network', networkName || 'none', '--name', containerName,
-    '--env', `POSTGRES_PASSWORD=${password}`, image,
+    '--env', `POSTGRES_PASSWORD=${isolatedDatabasePassword}`, image,
   ]);
   let ready = false;
   for (let attempt = 0; attempt < 30; attempt++) {
@@ -162,7 +163,7 @@ try {
     await command('docker', [
       'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
       '-U', 'supabase_admin', '-d', 'postgres',
-      '-c', `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${password}'`,
+      '-c', `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${isolatedDatabasePassword}'`,
     ]);
     try {
       await command('docker', [
@@ -171,13 +172,13 @@ try {
         '--env', 'GOTRUE_SITE_URL=http://localhost',
         '--env', 'API_EXTERNAL_URL=http://localhost',
         '--env', `GOTRUE_JWT_SECRET=${randomBytes(32).toString('hex')}`,
-        '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${containerName}:5432/postgres`,
+        '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${isolatedDatabasePassword}@${containerName}:5432/postgres`,
         'supabase/gotrue:v2.196.0', 'auth', 'migrate',
       ]);
     } catch (error) {
       const diagnostic = String(error.detail || '').split('\n')
         .find((line) => /(?:error|fatal|failed|invalid|unknown)/i.test(line))
-        ?.replaceAll(password, '[isolated password]')
+        ?.replaceAll(isolatedDatabasePassword, '[isolated password]')
         .replace(/postgres(?:ql)?:\/\/\S+/gi, '[isolated database URL]')
         .slice(0, 300);
       throw new Error(`Isolated Supabase Auth migration failed (${error.message}${diagnostic ? `: ${diagnostic}` : ''}); production was not touched.`);
@@ -281,23 +282,38 @@ try {
       await command('docker', [
         'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
         '-U', 'supabase_admin', '-d', 'postgres',
-        '-c', `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${password}'`,
+        '-c', `ALTER ROLE supabase_auth_admin LOGIN PASSWORD '${isolatedDatabasePassword}'`,
       ]);
       const jwtSecret = randomBytes(32).toString('hex');
       const authContainerName = `${containerName}-auth`;
       authContainerId = await command('docker', [
-        'run', '--detach', '--rm', '--network', networkName, '--name', authContainerName,
+        'run', '--detach', '--network', networkName, '--name', authContainerName,
         '--publish', '127.0.0.1::9999',
         '--env', 'GOTRUE_DB_DRIVER=postgres',
         '--env', 'GOTRUE_SITE_URL=http://localhost',
         '--env', 'API_EXTERNAL_URL=http://localhost',
         '--env', `GOTRUE_JWT_SECRET=${jwtSecret}`,
-        '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${containerName}:5432/postgres`,
+        '--env', `GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${isolatedDatabasePassword}@${containerName}:5432/postgres`,
         'supabase/gotrue:v2.196.0', 'auth',
       ]);
-      const portOutput = await command('docker', ['port', authContainerId, '9999/tcp']);
+      let portOutput = '';
+      try {
+        portOutput = await command('docker', ['port', authContainerId, '9999/tcp']);
+      } catch {
+        // The startup diagnostic below will report the container log.
+      }
       const authPort = /:(\d+)\s*$/.exec(portOutput)?.[1];
-      if (!authPort) throw new Error('Could not resolve isolated Auth service port.');
+      if (!authPort) {
+        const logs = await command('docker', ['logs', authContainerId]).catch((error) => error.detail || error.message);
+        const diagnostic = String(logs)
+          .replaceAll(isolatedDatabasePassword, '[isolated password]')
+          .replace(/postgres(?:ql)?:\/\/\S+/gi, '[isolated database URL]')
+          .split('\n')
+          .find((line) => /(?:error|fatal|failed|permission|migration|config)/i.test(line))
+          ?.trim()
+          .slice(0, 500);
+        throw new Error(`Isolated Auth service did not start${diagnostic ? `: ${diagnostic}` : '.'}`);
+      }
       let signedIn = false;
       for (let attempt = 0; attempt < 30; attempt++) {
         try {
@@ -337,6 +353,7 @@ try {
   let safeMessage = message;
   for (const secret of [
     process.env.RESTORE_TEST_PASSWORD,
+    isolatedDatabasePassword,
     process.env.GOOGLE_DRIVE_CLIENT_SECRET,
     process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
     process.env.BACKUP_ENCRYPTION_KEY,
@@ -354,7 +371,7 @@ try {
   }
   process.exitCode = 1;
 } finally {
-  if (authContainerId) await command('docker', ['stop', authContainerId]).catch(() => {});
+  if (authContainerId) await command('docker', ['rm', '--force', authContainerId]).catch(() => {});
   if (containerId) await command('docker', ['stop', containerId]).catch(() => {});
   if (networkName) await command('docker', ['network', 'rm', networkName]).catch(() => {});
   if (tempDirectory) await rm(tempDirectory, { recursive: true, force: true });
