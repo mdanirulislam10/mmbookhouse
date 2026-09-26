@@ -294,10 +294,21 @@ try {
       console.log(`::notice title=Storage file recovery passed::Recovered ${recovered.size} bytes with matching SHA-256 and metadata.`);
     }
     if (process.env.RESTORE_TEST_EMAIL && process.env.RESTORE_TEST_PASSWORD) {
+      const fixtureEmailSql = process.env.RESTORE_TEST_EMAIL.replaceAll("'", "''");
+      const restoredFixtureCount = Number(await command('docker', [
+        'exec', containerId, 'psql', '-X', '-A', '-t', '-U', 'supabase_admin', '-d', 'postgres',
+        '-c', `select count(*) from auth.users where email='${fixtureEmailSql}' and encrypted_password <> '' and email_confirmed_at is not null`,
+      ]));
+      if (restoredFixtureCount !== 1) throw new Error('The restored confirmed demo Auth user/password hash is missing.');
       await command('docker', [
         'exec', containerId, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1',
         '-U', 'supabase_admin', '-d', 'postgres',
         '-c', [
+          `DO $$ DECLARE t record; BEGIN
+            FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'auth' LOOP
+              EXECUTE format('ALTER TABLE auth.%I OWNER TO supabase_auth_admin', t.tablename);
+            END LOOP;
+          END $$`,
           'GRANT USAGE, CREATE ON SCHEMA auth TO supabase_auth_admin',
           'GRANT ALL ON ALL TABLES IN SCHEMA auth TO supabase_auth_admin',
           'GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO supabase_auth_admin',
@@ -312,6 +323,9 @@ try {
         '--publish', '127.0.0.1::9999',
         '--env', 'GOTRUE_API_HOST=0.0.0.0',
         '--env', 'PORT=9999',
+        '--env', 'GOTRUE_JWT_AUD=authenticated',
+        '--env', 'GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated',
+        '--env', 'GOTRUE_EXTERNAL_EMAIL_ENABLED=true',
         '--env', 'GOTRUE_DB_DRIVER=postgres',
         '--env', 'GOTRUE_DB_AFTER_CONNECT_QUERY=SET search_path TO auth,public',
         '--env', 'GOTRUE_SITE_URL=http://localhost',
