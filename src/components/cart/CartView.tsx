@@ -1,211 +1,150 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import {
-  ChevronRight,
-  Home,
-  CheckCircle2,
-  X,
-  RotateCcw,
-} from 'lucide-react';
-import { useCart } from '@/hooks/useCartStore';
-import { useLanguage } from '@/hooks/useLanguage';
-import { getCartDictionary } from '@/lib/i18n/cartDictionary';
-import { formatINR } from '@/lib/utils/currency';
-import { CartOrderSummary } from './CartOrderSummary';
-import { CartEmptyState } from './CartEmptyState';
-import { CartItemCard } from './CartItemCard';
-import { SavedForLaterSection } from './SavedForLaterSection';
-import { CartCrossSell } from './CartCrossSell';
+import { useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ShoppingBag } from "lucide-react";
+import { removeFromCart, setCartQty, setSavedForLater } from "@/app/actions/cart";
+import { LinkButton } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Field";
+import { BookCover } from "@/components/ui/BookCover";
+import { useToast } from "@/components/ui/Toaster";
+import { useT } from "@/lib/i18n/client";
+import { errorMessage } from "@/lib/i18n/errors";
+import { pick } from "@/lib/i18n";
+import type { CartLine } from "@/lib/data/cart";
+import { formatINR } from "@/lib/utils";
+import { Price } from "@/components/shop/Price";
 
-export const CartView: React.FC = () => {
-  const [isMounted, setIsMounted] = useState(false);
+function Line({ line, maxQty, saved }: { line: CartLine; maxQty: number; saved: boolean }) {
+  const { t, lang } = useT();
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, start] = useTransition();
+  const b = line.book;
+  const title = pick(lang, b.title, b.title_bn);
+  const limit = Math.max(Math.min(b.on_hand, maxQty), 1);
 
-  const {
-    items,
-    selectedItems,
-    selectedCount,
-    selectedSubtotal,
-    isAllSelected,
-    removeItem,
-    updateQuantity,
-    saveForLater,
-    toggleItemSelect,
-    selectAllItems,
-    lastDeletedItem,
-    undoRemoveItem,
-    clearLastDeletedItem,
-  } = useCart();
-  const { language, isBengali } = useLanguage();
-  const dict = getCartDictionary(language);
+  const run = (fn: () => Promise<{ ok: boolean; error?: string; detail?: string; data?: { capped?: boolean; qty?: number } }>) =>
+    start(async () => {
+      const res = await fn();
+      if (!res.ok) toast.error(errorMessage(lang, res.error, res.detail));
+      else if (res.data?.capped) toast.error(t("cart.stockChanged", { n: res.data.qty ?? 0 }));
+      router.refresh();
+    });
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Hydration fallback skeleton
-  if (!isMounted) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 animate-pulse">
-        {/* Breadcrumb Skeleton */}
-        <div className="h-4 bg-gray-200 rounded w-48 mb-6" />
-        {/* 2-Column Grid Skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 space-y-6">
-            <div className="bg-white rounded-lg p-6 border border-gray-200 h-96" />
-            <div className="bg-white rounded-lg p-6 border border-gray-200 h-40" />
-          </div>
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-lg p-6 border border-gray-200 h-72" />
-          </div>
+  return (
+    <li className={`flex gap-3 py-4 ${pending ? "opacity-60" : ""}`}>
+      <Link href={`/book/${b.slug}`} className="w-20 shrink-0 sm:w-24">
+        <BookCover src={b.cover_url} title={title} sizes="100px" />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <Link href={`/book/${b.slug}`} className="line-clamp-2 font-medium hover:text-brand-tealHover">
+          {title}
+        </Link>
+        {b.author_names ? <p className="text-xs text-slate-500">{t("book.by", { authors: pick(lang, b.author_names, b.author_names_bn) })}</p> : null}
+        <Price price={b.price} mrp={b.mrp} discountPct={b.discount_pct} offLabel={t("book.off", { pct: b.discount_pct })} />
+        <p className={`text-xs font-medium ${b.in_stock ? "text-stock" : "text-red-600"}`}>{b.in_stock ? t("book.inStock") : t("cart.unavailable")}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          {!saved ? (
+            <Select
+              aria-label={t("book.qtyLabel")}
+              className="h-8 w-20 py-0"
+              value={Math.min(line.qty, limit)}
+              disabled={!b.in_stock || pending}
+              onChange={(e) => run(() => setCartQty(b.id, Number(e.target.value)))}
+            >
+              {Array.from({ length: limit }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <button className="link" disabled={pending} onClick={() => run(() => removeFromCart(b.id))}>
+            {t("cart.remove")}
+          </button>
+          <button className="link" disabled={pending || (saved && !b.in_stock)} onClick={() => run(() => setSavedForLater(b.id, !saved))}>
+            {saved ? t("cart.moveToCart") : t("cart.saveForLater")}
+          </button>
         </div>
+      </div>
+      {!saved ? <p className="shrink-0 font-semibold">{formatINR(b.price * line.qty)}</p> : null}
+    </li>
+  );
+}
+
+export function CartView({ lines, maxQty }: { lines: CartLine[]; maxQty: number }) {
+  const { t } = useT();
+  const active = lines.filter((l) => !l.saved_for_later);
+  const saved = lines.filter((l) => l.saved_for_later);
+  const payable = active.filter((l) => l.book.in_stock);
+  const items = payable.reduce((n, l) => n + l.qty, 0);
+  const subtotal = payable.reduce((n, l) => n + l.book.price * l.qty, 0);
+  const mrpTotal = payable.reduce((n, l) => n + l.book.mrp * l.qty, 0);
+  const savings = mrpTotal - subtotal;
+
+  if (!active.length && !saved.length) {
+    return (
+      <div className="card mx-auto max-w-xl p-10 text-center">
+        <ShoppingBag className="mx-auto mb-3 text-slate-300" size={56} />
+        <h1 className="text-xl font-bold">{t("cart.empty")}</h1>
+        <p className="mt-1 text-slate-500">{t("cart.emptyText")}</p>
+        <LinkButton href="/" size="lg" className="mt-5">
+          {t("cart.continue")}
+        </LinkButton>
       </div>
     );
   }
 
-  const isEmpty = items.length === 0;
-
   return (
-    <div className="min-h-[75vh] bg-[#eaeded] py-4 sm:py-6 font-bengali">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Task 11: Accessible Breadcrumbs Navigation */}
-        <nav
-          aria-label={dict.breadcrumbs.ariaLabel}
-          className="flex items-center gap-1.5 text-xs text-gray-600 mb-4 select-none"
-        >
-          <Link
-            href="/"
-            className="flex items-center gap-1 hover:text-amber-800 transition-colors font-medium"
-          >
-            <Home className="w-3.5 h-3.5 text-gray-500" />
-            <span>{dict.breadcrumbs.home}</span>
-          </Link>
-          <ChevronRight className="w-3 h-3 text-gray-400 shrink-0" />
-          <span className="font-semibold text-gray-900" aria-current="page">
-            {dict.breadcrumbs.cart}
-          </span>
-        </nav>
+    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-4">
+        <section className="card p-4 sm:p-5">
+          <h1 className="border-b pb-3 text-2xl font-bold">{t("cart.title")}</h1>
+          {active.length ? (
+            <ul className="divide-y">
+              {active.map((l) => (
+                <Line key={l.book_id} line={l} maxQty={maxQty} saved={false} />
+              ))}
+            </ul>
+          ) : (
+            <p className="py-6 text-slate-500">{t("cart.emptyText")}</p>
+          )}
+          {active.length ? (
+            <p className="border-t pt-3 text-right text-lg">
+              {t("cart.subtotalItems", { n: items })}: <strong>{formatINR(subtotal)}</strong>
+            </p>
+          ) : null}
+        </section>
 
-        {/* Task 14: Delete Item with Smooth Fade-out & Undo Banner */}
-        {lastDeletedItem && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-lg flex items-center justify-between text-xs sm:text-sm text-amber-950 shadow-2xs animate-fadeIn"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span className="truncate">
-                {isBengali
-                  ? `"${lastDeletedItem.item.titleBn || lastDeletedItem.item.title}" বইটি কার্ট থেকে সরানো হয়েছে।`
-                  : `"${lastDeletedItem.item.title}" was removed from your cart.`}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 shrink-0 ml-2">
-              <button
-                type="button"
-                onClick={() => undoRemoveItem()}
-                className="font-bold text-amber-800 hover:text-amber-950 underline flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{isBengali ? 'পূর্বাবস্থায় ফিরিয়ে আনুন (Undo)' : 'Undo'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => clearLastDeletedItem()}
-                aria-label="Dismiss banner"
-                className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Empty Cart Handling */}
-        {isEmpty ? (
-          <div className="py-4">
-            <CartEmptyState />
-          </div>
-        ) : (
-          /* Amazon Classic 2-Column Responsive Layout */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: lg:col-span-8 */}
-            <div className="lg:col-span-8 space-y-6">
-              {/* Main Shopping Cart Container */}
-              <section
-                aria-label={dict.pageTitle}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6"
-              >
-                {/* Header Row: Title and Price Label */}
-                <div className="flex items-baseline justify-between pb-3 border-b border-gray-200">
-                  <div>
-                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
-                      {dict.pageTitle}
-                    </h1>
-                    {/* Task 15: Select / Deselect All Items Control */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-indigo-700 hover:text-indigo-900 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isAllSelected}
-                          onChange={(e) => selectAllItems(e.target.checked)}
-                          className="rounded border-gray-300 text-amber-500 focus:ring-amber-400 cursor-pointer"
-                        />
-                        <span>{isAllSelected ? dict.deselectAll : dict.selectAll}</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Desktop Price Header */}
-                  <span className="hidden sm:block text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                    {dict.priceHeader}
-                  </span>
-                </div>
-
-                {/* Active Cart Items List (Task 12: Full Line Item Card) */}
-                <div className="divide-y divide-gray-200">
-                  {items.map((item) => (
-                    <CartItemCard
-                      key={item.id}
-                      item={item}
-                      isSelected={item.isSelected !== false}
-                      onToggleSelect={(id, selected) => toggleItemSelect(id, selected)}
-                      onUpdateQuantity={(id, quantity) => updateQuantity(id, quantity)}
-                      onRemove={(id) => removeItem(id)}
-                      onSaveForLater={(id) => saveForLater(id)}
-                    />
-                  ))}
-                </div>
-
-                {/* Subtotal Footer inside Left Card */}
-                <div className="pt-4 mt-2 border-t border-gray-200 text-right">
-                  <p className="text-base sm:text-lg text-gray-800">
-                    <span className="font-normal">{dict.orderSummary.subtotal(selectedCount)}</span>{' '}
-                    <span className="font-bold text-gray-950 font-mono">
-                      {formatINR(selectedSubtotal, language)}
-                    </span>
-                  </p>
-                </div>
-              </section>
-
-              {/* Task 24: Unlimited Capacity "Save for Later" Section (savedForLater) */}
-              <SavedForLaterSection />
-
-              {/* Task 20: Cross-Sell Recommendations Carousel */}
-              <CartCrossSell />
-            </div>
-
-            {/* Right Column: lg:col-span-4 Sticky Order Summary */}
-            <div className="lg:col-span-4">
-              <CartOrderSummary />
-            </div>
-          </div>
-        )}
+        {saved.length ? (
+          <section className="card p-4 sm:p-5">
+            <h2 className="border-b pb-3 text-xl font-bold">{t("cart.saved", { n: saved.length })}</h2>
+            <ul className="divide-y">
+              {saved.map((l) => (
+                <Line key={l.book_id} line={l} maxQty={maxQty} saved />
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </div>
+
+      <aside className="lg:sticky lg:top-32 lg:self-start">
+        <div className="card space-y-3 p-4">
+          <p className="text-lg">
+            {t("cart.subtotalItems", { n: items })}: <strong>{formatINR(subtotal)}</strong>
+          </p>
+          {savings > 0 ? <p className="text-sm font-medium text-stock">{t("cart.savings", { amount: formatINR(savings) })}</p> : null}
+          <p className="text-xs text-slate-500">{t("cart.deliveryNote")}</p>
+          <LinkButton href="/checkout" variant="buy" size="lg" className="w-full" aria-disabled={!payable.length} tabIndex={payable.length ? 0 : -1}>
+            {t("cart.proceed")}
+          </LinkButton>
+          <LinkButton href="/" variant="ghost" size="sm" className="w-full">
+            {t("cart.continue")}
+          </LinkButton>
+        </div>
+      </aside>
     </div>
   );
-};
-
-export default CartView;
+}

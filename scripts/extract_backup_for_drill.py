@@ -1,4 +1,4 @@
-"""Extract only expected members of a supported MM Book House backup."""
+"""Extract only expected members of a supported mmbookhouse backup."""
 
 import json
 import shutil

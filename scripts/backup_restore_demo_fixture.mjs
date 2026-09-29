@@ -17,7 +17,7 @@ async function seed() {
   const password = `Drill-${randomBytes(24).toString('base64url')}!9a`;
   const bucket = `backup-drill-${suffix}`;
   const object = 'evidence/actual-storage-file.txt';
-  const bytes = Buffer.from(`MM Book House backup restore evidence ${suffix} ${randomBytes(32).toString('hex')}\n`);
+  const bytes = Buffer.from(`mmbookhouse backup restore evidence ${suffix} ${randomBytes(32).toString('hex')}\n`);
   const sha256 = createHash('sha256').update(bytes).digest('hex');
 
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({

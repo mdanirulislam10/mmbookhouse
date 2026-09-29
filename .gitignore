@@ -40,3 +40,5 @@ _cdp-verify.mjs
 verify*.log
 verify*.err
 
+
+tests/.e2e-users.local.json

@@ -1,12 +1,15 @@
 {
-  "name": "mm-book-house-malda",
-  "version": "0.1.0",
+  "name": "mmbookhouse",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:test": "vitest run tests/db",
+    "db:migrate": "node scripts/db-migrate.mjs",
     "backup:run": "node scripts/backup_to_google_drive.mjs",
     "backup:decrypt": "node scripts/decrypt_backup.mjs",
     "backup:authorize-drive": "node scripts/authorize_google_drive.mjs"
@@ -23,20 +26,24 @@
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.0.1",
     "zod": "^4.6.1",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/archiver": "^8.0.0",
     "@types/node": "^22.13.4",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.20",
     "pg": "^8.23.0",
     "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^5.0.2"
   }
 }

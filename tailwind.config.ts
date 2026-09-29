@@ -1,39 +1,37 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  darkMode: 'class',
+  content: ["./src/**/*.{ts,tsx,mdx}"],
   theme: {
     extend: {
-      transitionDuration: {
-        '250': '250ms',
-      },
       colors: {
-        amazon: {
-          dark: "#131921",
-          light_dark: "#232f3e",
-          subnav: "#232f3e",
-          yellow: "#febd69",
-          orange: "#f08804",
-          orange_hover: "#e47911",
-          blue_light: "#007185",
-          blue_hover: "#c7511f",
-          gray_bg: "#eaeded",
-          border: "#3a4553",
+        brand: {
+          navy: "#131921",
+          ink: "#0f1111",
+          slate: "#232f3e",
+          amber: "#f59e0b",
+          amberHover: "#d97706",
+          gold: "#febd69",
+          teal: "#007185",
+          tealHover: "#c7511f",
+          sky: "#eaeded",
         },
+        price: "#b12704",
+        stock: "#067d62",
       },
       fontFamily: {
-        sans: ["var(--font-outfit)", "var(--font-bengali)", "Inter", "sans-serif"],
-        bengali: ["var(--font-bengali)", "'Hind Siliguri'", "'Noto Sans Bengali'", "sans-serif"],
-        outfit: ["var(--font-outfit)", "'Outfit'", "Inter", "sans-serif"],
+        sans: ["var(--font-sans)", "var(--font-bengali)", "system-ui", "sans-serif"],
+        bengali: ["var(--font-bengali)", "system-ui", "sans-serif"],
       },
-      backdropBlur: {
-        xs: '2px',
+      boxShadow: {
+        card: "0 1px 2px rgba(15,17,17,.08), 0 2px 8px rgba(15,17,17,.06)",
+        pop: "0 8px 30px rgba(15,17,17,.18)",
       },
+      keyframes: {
+        fadeIn: { from: { opacity: "0", transform: "translateY(4px)" }, to: { opacity: "1", transform: "none" } },
+        shimmer: { "100%": { transform: "translateX(100%)" } },
+      },
+      animation: { fadeIn: "fadeIn .18s ease-out", shimmer: "shimmer 1.4s infinite" },
     },
   },
   plugins: [],

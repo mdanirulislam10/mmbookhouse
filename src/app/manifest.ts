@@ -1,31 +1,25 @@
-import type { MetadataRoute } from 'next';
-import { pwaManifestConfig } from '@/lib/services/pwaManifestService';
+import type { MetadataRoute } from "next";
 
-/**
- * Module 20: Progressive Web App Manifest (Items 2, 7, 9)
- * Amazon-pattern PWA configuration:
- * - Standalone app display with #131921 Navy theme & #FFFFFF background
- * - Maskable and standard 192x192 & 512x512 icons
- * - 3 App Shortcuts: Track Order, Search Books, Deal of the Day
- * - Splash screen branding metadata
- */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: pwaManifestConfig.name,
-    short_name: pwaManifestConfig.short_name,
-    description: pwaManifestConfig.description,
-    start_url: pwaManifestConfig.start_url,
-    id: 'mm-book-house-pwa-app',
-    display: pwaManifestConfig.display,
-    background_color: pwaManifestConfig.background_color,
-    theme_color: pwaManifestConfig.theme_color,
-    lang: pwaManifestConfig.lang,
-    dir: pwaManifestConfig.dir,
-    orientation: pwaManifestConfig.orientation,
-    icons: pwaManifestConfig.icons,
-    categories: pwaManifestConfig.categories,
-    shortcuts: pwaManifestConfig.shortcuts,
-    related_applications: [],
-    prefer_related_applications: false,
+    name: "mmbookhouse",
+    short_name: "mmbookhouse",
+    description: "Your trusted online bookstore",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#ffffff",
+    theme_color: "#131921",
+    lang: "bn-IN",
+    icons: [
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
+    shortcuts: [
+      { name: "Search books", url: "/search" },
+      { name: "My orders", url: "/account/orders" },
+    ],
   };
 }

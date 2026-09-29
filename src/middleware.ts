@@ -1,64 +1,45 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { applySecurityHeadersToResponse } from '@/lib/security/securityHeaders';
+import { NextResponse, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-/**
- * Task 45 & Module 20: Next.js Middleware Protection & Security Hardening
- * Protects authenticated customer routes (/account, /checkout, /orders)
- * and attaches banking-grade HTTP security headers (CSP, HSTS, X-Frame-Options: DENY).
- */
-export function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+const ADMIN_IDLE_MS = 2 * 60 * 60 * 1000; // sign staff out after 2 idle hours
+const ADMIN_SEEN_COOKIE = "mm_admin_seen";
 
-  // 1. Inspect session token cookie (Task 24)
-  const sessionToken = request.cookies.get('mm_session_token')?.value;
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const { response, user } = await updateSession(request);
 
-  // 2. Inspect Supabase auth cookies
-  const hasSupabaseCookie = request.cookies
-    .getAll()
-    .some((c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
-
-  const isAuthenticated = Boolean(sessionToken || hasSupabaseCookie);
-
-  // 3. Define protected route prefixes (exempting public verification callbacks)
-  const isProtectedPath =
-    (pathname.startsWith('/account') && pathname !== '/account/verify-email') ||
-    pathname.startsWith('/checkout') ||
-    pathname.startsWith('/orders');
-
-  // Guard: If accessing protected route without valid session
-  if (isProtectedPath && !isAuthenticated) {
-    const loginUrl = new URL('/login', request.url);
-    const destination = pathname + search;
-    loginUrl.searchParams.set('redirect', destination);
-    const redirectResponse = NextResponse.redirect(loginUrl);
-    return applySecurityHeadersToResponse(redirectResponse);
+  // Signed-in area guards (cheap redirect; pages re-check on the server).
+  const needsLogin = ["/account", "/checkout", "/orders", "/wishlist"].some((p) => pathname === p || pathname.startsWith(p + "/"));
+  if (needsLogin && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
+    return NextResponse.redirect(url);
   }
 
-  // Guard: If already authenticated and accessing /login, redirect back to destination or /account
-  if (pathname === '/login' && isAuthenticated) {
-    const redirectParam = request.nextUrl.searchParams.get('redirect');
-    const destination =
-      redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
-        ? redirectParam
-        : '/account';
-    const redirectResponse = NextResponse.redirect(new URL(destination, request.url));
-    return applySecurityHeadersToResponse(redirectResponse);
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/login";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    const seen = Number(request.cookies.get(ADMIN_SEEN_COOKIE)?.value ?? 0);
+    if (seen && Date.now() - seen > ADMIN_IDLE_MS) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/login";
+      url.search = "?expired=1";
+      const redirect = NextResponse.redirect(url);
+      redirect.cookies.delete(ADMIN_SEEN_COOKIE);
+      return redirect;
+    }
+    response.cookies.set(ADMIN_SEEN_COOKIE, String(Date.now()), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: 60 * 60 * 24 });
   }
 
-  const nextResponse = NextResponse.next();
-  return applySecurityHeadersToResponse(nextResponse);
+  if (pathname.startsWith("/admin")) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * 1. /api/* (API routes)
-     * 2. /_next/* (Next.js internal static assets & chunks)
-     * 3. /_static/* (Inside public directory)
-     * 4. /favicon.ico, /manifest.webmanifest, etc.
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml).*)',
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|manifest.webmanifest|sw.js|.*\.(?:png|jpg|jpeg|svg|webp|gif|ico)$).*)"],
 };
