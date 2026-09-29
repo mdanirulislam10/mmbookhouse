@@ -4,6 +4,7 @@ import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n";
 import { getBestsellers, getCategories, getDealBooks, getFeatured, getHeroBanners, getNewArrivals } from "@/lib/data/catalog";
 import { getSettings } from "@/lib/data/settings";
+import { getRecentlyViewed } from "@/lib/data/recent";
 import { HeroCarousel } from "@/components/shop/HeroCarousel";
 import { Shelf } from "@/components/shop/Shelf";
 import { Countdown } from "@/components/shop/Countdown";
@@ -12,7 +13,7 @@ export const revalidate = 60;
 
 export default async function HomePage() {
   const { t, lang } = await getT();
-  const [banners, deals, bestsellers, newest, featured, categories, settings] = await Promise.all([
+  const [banners, deals, bestsellers, newest, featured, categories, settings, recent] = await Promise.all([
     getHeroBanners(),
     getDealBooks(12),
     getBestsellers(12),
@@ -20,6 +21,7 @@ export default async function HomePage() {
     getFeatured(12),
     getCategories(),
     getSettings(),
+    getRecentlyViewed(),
   ]);
 
   const hero = banners.filter((b) => b.placement === "hero");
@@ -102,6 +104,7 @@ export default async function HomePage() {
       <Shelf title={t("home.bestsellers")} books={bestsellers} href="/bestsellers" />
       <Shelf title={t("home.newArrivals")} books={newest} href="/new-arrivals" />
       <Shelf title={t("home.featured")} books={featured} />
+      <Shelf title={t("home.recent")} books={recent} />
 
       {!hasBooks ? (
         <section className="card p-10 text-center">

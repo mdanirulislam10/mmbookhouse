@@ -32,10 +32,13 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
     <div className="min-h-screen bg-slate-200 print:bg-white">
       <style>{`${PAGE_CSS[type]} body { background: white; } @media print { .print-bar { display: none } }`}</style>
       <PrintBar count={orders.length} />
-      <div className="flex flex-col items-center gap-4 py-4 print:gap-0 print:py-0">
-        {type === "label" ? await Promise.all(orders.map(async (o) => <Label key={o.order.id} data={o} store={store} />)) : null}
-        {type === "slip" ? orders.map((o) => <PackingSlip key={o.order.id} data={o} />) : null}
-        {type === "invoice" ? await Promise.all(orders.map(async (o) => <Invoice key={o.order.id} data={o} store={store} />)) : null}
+      {/* Sheets have fixed paper sizes; on a phone the preview scrolls sideways instead of being cut off on the left. */}
+      <div className="overflow-x-auto">
+        <div className="mx-auto flex w-max flex-col gap-4 py-4 print:w-auto print:gap-0 print:py-0">
+          {type === "label" ? await Promise.all(orders.map(async (o) => <Label key={o.order.id} data={o} store={store} />)) : null}
+          {type === "slip" ? orders.map((o) => <PackingSlip key={o.order.id} data={o} />) : null}
+          {type === "invoice" ? await Promise.all(orders.map(async (o) => <Invoice key={o.order.id} data={o} store={store} />)) : null}
+        </div>
       </div>
     </div>
   );

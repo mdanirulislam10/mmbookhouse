@@ -8,6 +8,8 @@ import { getBookBySlug, getBookQuestions, getBookReviews, getRelatedBooks, getSi
 import { getSettings } from "@/lib/data/settings";
 import { getSessionUser } from "@/lib/data/session";
 import { getWishlistIds } from "@/lib/data/wishlist";
+import { getRecentlyViewed } from "@/lib/data/recent";
+import { RecentTracker } from "@/components/shop/RecentTracker";
 import { createClient } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
 import { Gallery } from "@/components/pdp/Gallery";
@@ -42,13 +44,14 @@ export default async function BookPage({ params }: Props) {
   const { t, lang } = await getT();
   const user = await getSessionUser();
 
-  const [settings, fbt, similar, reviews, questions, wished] = await Promise.all([
+  const [settings, fbt, similar, reviews, questions, wished, recent] = await Promise.all([
     getSettings(),
     getRelatedBooks(book.id, "fbt", 3),
     getSimilarByCategory(book.id, 12),
     getBookReviews(book.id),
     getBookQuestions(book.id),
     getWishlistIds(),
+    getRecentlyViewed(slug),
   ]);
 
   let alerted = false;
@@ -188,6 +191,8 @@ export default async function BookPage({ params }: Props) {
       <Reviews bookId={book.id} avg={c.rating_avg} count={c.rating_count} reviews={reviews} />
       <Questions bookId={book.id} items={questions} />
       <Shelf title={t("book.similar")} books={similar} />
+      <Shelf title={t("home.recent")} books={recent} />
+      <RecentTracker slug={book.slug} />
     </div>
   );
 }
