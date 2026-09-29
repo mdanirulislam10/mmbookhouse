@@ -6,6 +6,8 @@ import { getProfile, requireUser } from "@/lib/data/session";
 import { getMyOrders } from "@/lib/data/account";
 import { AccountShell } from "@/components/account/AccountShell";
 import { ProfileForm } from "@/components/account/ProfileForm";
+import { NotifyPrefs } from "@/components/account/NotifyPrefs";
+import { createClient } from "@/lib/supabase/server";
 import { OrderStatusBadge } from "@/components/orders/StatusBadge";
 import { formatDate, formatINR } from "@/lib/utils";
 
@@ -15,7 +17,9 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const user = await requireUser("/account");
   const { t, lang } = await getT();
-  const [profile, orders] = await Promise.all([getProfile(), getMyOrders(3)]);
+  const [profile, orders, authUser] = await Promise.all([getProfile(), getMyOrders(3), createClient().then((c) => c.auth.getUser())]);
+  const nm = ((authUser.data.user?.user_metadata?.notify ?? {}) as Partial<{ email: boolean; sms: boolean; whatsapp: boolean }>);
+  const prefs = { email: nm.email ?? true, sms: nm.sms ?? true, whatsapp: nm.whatsapp ?? true };
 
   const cards = [
     { href: "/account/orders", icon: Package, title: t("account.orders"), text: t("account.ordersText") },
@@ -45,6 +49,11 @@ export default async function AccountPage() {
           <p className="mb-4 text-sm text-slate-500">{t("account.profileText")}</p>
           {!user.emailConfirmed ? <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">{t("account.emailUnverified")}</p> : null}
           <ProfileForm fullName={profile?.full_name ?? user.fullName ?? ""} phone={profile?.phone ?? ""} email={user.email ?? ""} />
+        </section>
+
+        <section className="card p-5">
+          <h2 className="mb-3 text-lg font-bold">{t("account.notifyTitle")}</h2>
+          <NotifyPrefs initial={prefs} />
         </section>
 
         <section className="card p-5">

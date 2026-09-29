@@ -3,14 +3,15 @@ import { bn as shopBn, en as shopEn } from "./dict/shop";
 import { bn as accountBn, en as accountEn } from "./dict/account";
 import { bn as adminBn, en as adminEn } from "./dict/admin";
 import { bn as admin2Bn, en as admin2En } from "./dict/admin2";
+import { bn as admin3Bn, en as admin3En } from "./dict/admin3";
 
 export const LANGS = ["bn", "en"] as const;
 export type Lang = (typeof LANGS)[number];
 export const DEFAULT_LANG: Lang = "bn";
 export const LANG_COOKIE = "mm_lang";
 
-const en = { ...commonEn, ...shopEn, ...accountEn, ...adminEn, ...admin2En };
-const bn = { ...commonBn, ...shopBn, ...accountBn, ...adminBn, ...admin2Bn };
+const en = { ...commonEn, ...shopEn, ...accountEn, ...adminEn, ...admin2En, ...admin3En };
+const bn = { ...commonBn, ...shopBn, ...accountBn, ...adminBn, ...admin2Bn, ...admin3Bn };
 export const dictionaries: { en: typeof en; bn: typeof bn } = { en, bn };
 
 export type DictKey = keyof typeof en;

@@ -83,6 +83,11 @@ export const en = {
   "account.err.pincode": "Enter a valid 6-digit pincode.",
   "account.err.line1": "Enter your street address.",
   "account.err.city": "Enter your town or city.",
+  "account.notifyTitle": "Order updates",
+  "account.notifyText": "Choose how we tell you about your orders (confirmation, shipping, delivery).",
+  "account.notify.email": "E-mail",
+  "account.notify.whatsapp": "WhatsApp",
+  "account.notify.sms": "SMS (text message)",
 } as const;
 
 export const bn = {
@@ -170,4 +175,9 @@ export const bn = {
   "account.err.pincode": "সঠিক ৬ সংখ্যার পিনকোড দিন।",
   "account.err.line1": "রাস্তার ঠিকানা লিখুন।",
   "account.err.city": "শহর বা গ্রামের নাম লিখুন।",
+  "account.notifyTitle": "অর্ডারের আপডেট",
+  "account.notifyText": "অর্ডারের খবর (নিশ্চিত, পাঠানো, পৌঁছানো) কোন মাধ্যমে পেতে চান বাছুন।",
+  "account.notify.email": "ইমেইল",
+  "account.notify.whatsapp": "হোয়াটসঅ্যাপ",
+  "account.notify.sms": "SMS (টেক্সট মেসেজ)",
 } as const satisfies Record<keyof typeof en, string>;

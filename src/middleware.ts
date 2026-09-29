@@ -17,6 +17,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // The idle marker is only meaningful inside the panel; the login page always starts a fresh one.
+  if (pathname === "/admin/login" && request.cookies.has(ADMIN_SEEN_COOKIE)) {
+    response.cookies.set(ADMIN_SEEN_COOKIE, "", { path: "/admin", maxAge: 0 });
+  }
+
   if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
     if (!user) {
       const url = request.nextUrl.clone();
@@ -30,7 +35,7 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/admin/login";
       url.search = "?expired=1";
       const redirect = NextResponse.redirect(url);
-      redirect.cookies.delete(ADMIN_SEEN_COOKIE);
+      redirect.cookies.set(ADMIN_SEEN_COOKIE, "", { path: "/admin", maxAge: 0 });
       return redirect;
     }
     response.cookies.set(ADMIN_SEEN_COOKIE, String(Date.now()), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: 60 * 60 * 24 });

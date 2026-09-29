@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { dbError, fail, uuid, type ActionResult } from "@/lib/actions";
+import { defer, notifyCustomer, notifyOrderPlaced, notifyPaymentSubmitted } from "@/lib/notify";
 
 const placeSchema = z.object({
   addressId: uuid.nullable(),
@@ -35,6 +36,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<ActionResult<{
   if (error) return dbError(error);
   const r = data as { order_id: string; order_no: string; total: number; payment_method: string };
   revalidatePath("/", "layout");
+  defer(() => notifyOrderPlaced(r.order_id));
   return { ok: true, data: { orderId: r.order_id, orderNo: r.order_no, total: Number(r.total), paymentMethod: r.payment_method } };
 }
 
@@ -45,6 +47,7 @@ export async function submitUtr(orderId: string, utr: string): Promise<ActionRes
   const { error } = await supabase.rpc("submit_utr", { p_order: parsed.data.orderId, p_utr: parsed.data.utr.toUpperCase() });
   if (error) return dbError(error);
   revalidatePath(`/account/orders/${orderId}`);
+  defer(() => notifyPaymentSubmitted(orderId));
   return { ok: true };
 }
 
@@ -55,6 +58,7 @@ export async function cancelMyOrder(orderId: string, reason?: string): Promise<A
   if (error) return dbError(error);
   revalidatePath("/account/orders");
   revalidatePath(`/account/orders/${orderId}`);
+  defer(() => notifyCustomer(orderId, "cancelled", { reason: reason ?? undefined }));
   return { ok: true };
 }
 

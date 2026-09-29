@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, BookOpen, Boxes, ClipboardList, Gauge, History, LogOut, Megaphone, Menu, MessageSquare, Package, Settings, ShieldCheck, Store, Tags, Users, UserCog, X, DatabaseBackup, Inbox,
+  BarChart3, Bell, BookOpen, Boxes, ClipboardList, Gauge, History, LogOut, Megaphone, Menu, MessageSquare, Package, Settings, ShieldCheck, Store, Tags, Users, UserCog, X, DatabaseBackup, Inbox,
 } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n";
@@ -23,6 +23,7 @@ const NAV: { area: Area; href: string; label: DictKey; icon: React.ComponentType
   { area: "customers", href: "/admin/customers", label: "admin.nav.customers", icon: Users },
   { area: "reports", href: "/admin/reports", label: "admin.nav.reports", icon: BarChart3 },
   { area: "settings", href: "/admin/settings", label: "admin.nav.settings", icon: Settings },
+  { area: "settings", href: "/admin/notifications", label: "admin.nav.notifications", icon: Bell },
   { area: "staff", href: "/admin/staff", label: "admin.nav.staff", icon: UserCog },
   { area: "backups", href: "/admin/backups", label: "admin.nav.backups", icon: DatabaseBackup },
   { area: "audit", href: "/admin/audit", label: "admin.nav.audit", icon: History },

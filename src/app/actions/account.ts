@@ -85,3 +85,15 @@ export async function updateProfile(input: { full_name: string; phone: string })
   revalidatePath("/", "layout");
   return { ok: true };
 }
+
+/** Choose how order updates reach the customer (stored on the auth user; defaults to all on). */
+export async function updateNotifyPrefs(input: { email: boolean; sms: boolean; whatsapp: boolean }): Promise<ActionResult> {
+  const parsed = z.object({ email: z.boolean(), sms: z.boolean(), whatsapp: z.boolean() }).safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT");
+  const { supabase, userId } = await currentUser();
+  if (!userId) return fail("AUTH_REQUIRED");
+  const { error } = await supabase.auth.updateUser({ data: { notify: parsed.data } });
+  if (error) return dbError(error);
+  revalidatePath("/account");
+  return { ok: true };
+}

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { authorize, FORBIDDEN, writeAudit } from "@/lib/admin/guard";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { dbError, fail, uuid, type ActionResult } from "@/lib/actions";
+import { defer, eventForStatus, notifyCustomer } from "@/lib/notify";
 
 const STATUSES = ["confirmed", "processing", "ready", "dispatched", "delivered", "cancelled", "returned"] as const;
 
@@ -33,6 +34,8 @@ export async function setOrderStatus(input: { orderId: string; status: (typeof S
   });
   if (error) return dbError(error);
   await writeAudit(staff, "order.status", "order", v.orderId, { before: before?.status, after: v.status });
+  const ev = eventForStatus(v.status);
+  if (ev) defer(() => notifyCustomer(v.orderId, ev, { reason: v.note }));
   refresh(v.orderId);
   return { ok: true };
 }
@@ -50,6 +53,7 @@ export async function reviewPayment(input: { orderId: string; approve: boolean; 
   });
   if (error) return dbError(error);
   await writeAudit(staff, parsed.data.approve ? "payment.approve" : "payment.reject", "order", parsed.data.orderId);
+  defer(() => notifyCustomer(parsed.data.orderId, parsed.data.approve ? "payment_approved" : "payment_rejected"));
   refresh(parsed.data.orderId);
   return { ok: true };
 }
@@ -96,6 +100,7 @@ export async function verifyPickup(input: { orderId: string; otp: string }): Pro
   });
   if (error) return dbError(error);
   await writeAudit(staff, "order.pickup", "order", parsed.data.orderId);
+  defer(() => notifyCustomer(parsed.data.orderId, "delivered"));
   refresh(parsed.data.orderId);
   return { ok: true };
 }
@@ -112,7 +117,11 @@ export async function bulkSetStatus(input: { orderIds: string[]; status: "confir
   for (const id of parsed.data.orderIds) {
     const { error } = await service.rpc("admin_set_order_status", { p_order: id, p_status: parsed.data.status, p_note: null, p_actor: staff.userId, p_restock: true });
     if (error) failed++;
-    else done++;
+    else {
+      done++;
+      const ev = eventForStatus(parsed.data.status);
+      if (ev) defer(() => notifyCustomer(id, ev));
+    }
   }
   await writeAudit(staff, "order.bulk_status", "order", null, { after: { status: parsed.data.status, done, failed } });
   refresh();
