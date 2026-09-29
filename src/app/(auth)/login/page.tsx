@@ -10,5 +10,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const next = safeNext(first(sp.next), "/account");
   if (await getSessionUser()) redirect(next);
-  return <LoginForm next={next} initialMode={first(sp.mode) === "signup" ? "signup" : "signin"} linkError={first(sp.error) === "link"} />;
+  return <LoginForm next={next} initialMode={first(sp.mode) === "signup" ? "signup" : "signin"} linkError={first(sp.error) === "link"} googleEnabled={process.env.NEXT_PUBLIC_GOOGLE_LOGIN === "true"} />;
 }

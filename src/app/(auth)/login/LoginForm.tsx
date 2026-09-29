@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 type Mode = "signin" | "signup";
 type Tab = "password" | "code";
 
-export function LoginForm({ next, initialMode, linkError, allowSignUp = true }: { next: string; initialMode: Mode; linkError: boolean; allowSignUp?: boolean }) {
+export function LoginForm({ next, initialMode, linkError, allowSignUp = true, googleEnabled = false }: { next: string; initialMode: Mode; linkError: boolean; allowSignUp?: boolean; googleEnabled?: boolean }) {
   const { t, lang } = useT();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -104,6 +104,8 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true }: 
     <div className="card p-6">
       <h1 className="mb-4 text-2xl font-bold">{mode === "signin" ? t("auth.signInTitle") : t("auth.signUpTitle")}</h1>
 
+      {googleEnabled ? (
+        <>
       <button
         type="button"
         onClick={google}
@@ -121,6 +123,8 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true }: 
       <div className="my-4 flex items-center gap-3 text-xs uppercase text-slate-400">
         <span className="h-px flex-1 bg-slate-200" /> {t("auth.or")} <span className="h-px flex-1 bg-slate-200" />
       </div>
+        </>
+      ) : null}
 
       <div className="mb-4 grid grid-cols-2 rounded-full bg-slate-100 p-1 text-sm font-medium" role="tablist">
         {(["password", "code"] as const).map((k) => (
