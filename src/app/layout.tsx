@@ -5,6 +5,7 @@ import { getLang } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { ToastProvider } from "@/components/ui/Toaster";
 import { publicEnv } from "@/lib/env";
+import { PwaRegister } from "@/components/layout/Pwa";
 
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const bengali = Hind_Siliguri({ subsets: ["bengali", "latin"], weight: ["400", "500", "600", "700"], variable: "--font-bengali", display: "swap" });
@@ -32,6 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-screen font-sans" id="top">
         <I18nProvider lang={lang}>
           <ToastProvider>{children}</ToastProvider>
+          <PwaRegister />
         </I18nProvider>
       </body>
     </html>

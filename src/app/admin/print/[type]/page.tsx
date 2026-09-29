@@ -16,12 +16,16 @@ const PAGE_CSS: Record<string, string> = {
 };
 
 export default async function PrintPage({ params, searchParams }: { params: Promise<{ type: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireStaff(["dispatch_staff"]);
+  const staff = await requireStaff(["dispatch_staff", "inventory_manager"]);
   const { type } = await params;
   if (!(type in PAGE_CSS)) notFound();
+  // Inventory managers only print counter (POS) receipts, never shipping labels or online orders.
+  const counterOnly = staff.role === "inventory_manager";
+  if (counterOnly && type !== "invoice") notFound();
   const ids = (first((await searchParams).ids) ?? "").split(",").filter(Boolean);
   if (!ids.length) notFound();
-  const { orders, store } = await getOrdersForPrint(ids);
+  const { orders: all, store } = await getOrdersForPrint(ids);
+  const orders = counterOnly ? all.filter((o) => o.order.channel === "pos") : all;
   if (!orders.length) notFound();
 
   return (

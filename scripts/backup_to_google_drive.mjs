@@ -256,7 +256,7 @@ async function main() {
     })),
   ];
   await createZip(archivePath, archiveFiles, {
-    project: 'MMM Enterprise',
+    project: 'mmbookhouse',
     createdAt: new Date().toISOString(),
     timezone: 'Asia/Kolkata',
     formatVersion: 4,

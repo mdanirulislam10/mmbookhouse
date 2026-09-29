@@ -299,6 +299,9 @@ export const en = {
   "pdp.lookInside": "Look inside",
   "err.LINE1_REQUIRED": "Enter your street address.",
   "err.CITY_REQUIRED": "Enter your town or city.",
+  "pwa.install.title": "Install mmbookhouse",
+  "pwa.install.body": "Add the shop to your home screen for faster access.",
+  "pwa.install.button": "Install",
 } as const;
 
 export const bn = {
@@ -590,4 +593,7 @@ export const bn = {
   "pdp.lookInside": "ভেতরটা দেখুন",
   "err.LINE1_REQUIRED": "রাস্তার ঠিকানা লিখুন।",
   "err.CITY_REQUIRED": "শহর বা গ্রামের নাম লিখুন।",
+  "pwa.install.title": "mmbookhouse ইনস্টল করুন",
+  "pwa.install.body": "দ্রুত খুলতে দোকানটি হোম স্ক্রিনে যোগ করুন।",
+  "pwa.install.button": "ইনস্টল",
 } as const satisfies Record<keyof typeof en, string>;

@@ -6,6 +6,7 @@ import { getCartCount } from "@/lib/data/cart";
 import { getStaff } from "@/lib/data/session";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n";
+import { InstallPrompt } from "@/components/layout/Pwa";
 import { Wrench } from "lucide-react";
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
@@ -31,6 +32,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <main className="min-h-[60vh] pb-20 md:pb-0">{children}</main>
       <Footer />
       <MobileNav cartCount={cartCount} />
+      <InstallPrompt />
     </>
   );
 }
