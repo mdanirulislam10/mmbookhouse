@@ -7,6 +7,7 @@ on:
       - .github/workflows/verify-backup-auth-storage-restore.yml
       - scripts/backup_restore_demo_fixture.mjs
       - scripts/backup_to_google_drive.mjs
+      - scripts/lib/**
       - scripts/extract_backup_for_drill.py
       - scripts/verify_backup_restore.mjs
   workflow_dispatch:
@@ -32,6 +33,15 @@ jobs:
       GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
       GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
       BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+      # Optional: put dashboard settings (Supabase Auth/Storage config, Vercel env) into the backup too.
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+      # Optional retention overrides (repository variables); defaults: 30 days, 24 months, 7 newest.
+      BACKUP_RETENTION_DAYS: ${{ vars.BACKUP_RETENTION_DAYS }}
+      BACKUP_RETENTION_MONTHS: ${{ vars.BACKUP_RETENTION_MONTHS }}
+      BACKUP_KEEP_NEWEST: ${{ vars.BACKUP_KEEP_NEWEST }}
     steps:
       - name: Check out application
         uses: actions/checkout@v4

@@ -15,7 +15,10 @@ orders = {
     2: ["roles.sql", "managed-schema.sql", "schema.sql", "data.sql"],
     3: ["roles.sql", "managed-schema.sql", "schema.sql", "data.sql"],
     4: ["roles.sql", "managed-schema.sql", "schema.sql", "data.sql", "auth-migrations.sql"],
+    5: ["roles.sql", "managed-schema.sql", "schema.sql", "data.sql", "auth-migrations.sql"],
 }
+# Files added by format v5 next to the SQL: the source code at the backed-up commit and the dashboard settings.
+EXTRA_ALLOWED = {"source-code.tar.gz", "external-config.json"}
 
 with zipfile.ZipFile(archive) as source:
     names = source.namelist()
@@ -26,6 +29,14 @@ with zipfile.ZipFile(archive) as source:
     expected = base | ({"managed-schema.sql"} if manifest["formatVersion"] >= 2 else set())
     if manifest["formatVersion"] >= 4:
         expected.add("auth-migrations.sql")
+    if manifest["formatVersion"] >= 5:
+        extra = manifest.get("extraFiles")
+        if not isinstance(extra, list):
+            raise SystemExit("Missing extra file manifest")
+        extra_names = {item.get("name") if isinstance(item, dict) else None for item in extra}
+        if not extra_names <= EXTRA_ALLOWED or "external-config.json" not in extra_names:
+            raise SystemExit("Unexpected extra backup files")
+        expected |= extra_names
     if manifest["formatVersion"] >= 3:
         storage_objects = manifest.get("storageObjects")
         if not isinstance(storage_objects, list):

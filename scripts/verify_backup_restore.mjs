@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { google } from 'googleapis';
+import { collectRowCounts, compareRowCounts } from './lib/backup-counts.mjs';
 
 const required = [
   'GOOGLE_DRIVE_CLIENT_ID',
@@ -396,6 +397,34 @@ try {
       if (!signedIn) throw new Error('RESTORED AUTH SIGN-IN FAILED.');
       console.log('RESTORED AUTH SIGN-IN PASSED for the demo user.');
       console.log('::notice title=Restored Auth sign-in passed::The temporary user signed in successfully against the isolated restored database.');
+    }
+    if (manifest.formatVersion >= 5) {
+      // Everything else the archive promises: source code, dashboard settings, and the same row counts as production.
+      for (const file of manifest.extraFiles || []) {
+        const bytes = await readFile(join(extracted, file.name));
+        if (createHash('sha256').update(bytes).digest('hex') !== file.sha256 || bytes.length !== file.size) {
+          throw new Error(`Archive file ${file.name} failed its checksum.`);
+        }
+      }
+      if (!manifest.sourceCommit || !(manifest.extraFiles || []).some((f) => f.name === 'source-code.tar.gz')) {
+        throw new Error('The backup does not contain the source code.');
+      }
+      const external = manifest.externalConfig || {};
+      console.log(`Source code in backup: commit ${manifest.sourceCommit}`);
+      console.log(`Dashboard settings in backup: Supabase ${external.supabase}, Vercel ${external.vercel}`);
+      if (!manifest.rowCounts) throw new Error('The backup manifest has no row counts to compare.');
+      const runSql = async (sql) => {
+        const out = await command('docker', [
+          'exec', containerId, 'psql', '-X', '-A', '-t', '-F', '|', '-U', 'supabase_admin', '-d', 'postgres', '-c', sql,
+        ]);
+        return out.split('\n').filter(Boolean).map((line) => line.split('|'));
+      };
+      const restoredCounts = await collectRowCounts(runSql);
+      const verdict = compareRowCounts(manifest.rowCounts, restoredCounts);
+      console.log(`Row counts (restored): ${Object.entries(restoredCounts).map(([name, n]) => `${name}=${n}`).join(', ')}`);
+      if (!verdict.ok) throw new Error(`ROW COUNT MISMATCH after restore: ${verdict.problems.slice(0, 10).join('; ')}`);
+      console.log(`ROW COUNTS MATCH PRODUCTION: ${verdict.tables} tables, ${verdict.rows} rows.`);
+      console.log(`::notice title=Row counts match production::${verdict.tables} tables and ${verdict.rows} rows restored; source code and dashboard settings included.`);
     }
     console.log(`FULL DATABASE RESTORE PASSED: ${tableCount} public tables, ${bookCount} books, ${authUsers} Auth users, ${storageObjects} Storage metadata rows.`);
     console.log(`${archivedStorageObjects.length} Storage object files recovered and checksum-verified.`);
