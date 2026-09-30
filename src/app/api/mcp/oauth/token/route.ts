@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { issueTokens, mcpEnabled, readClientId, readRefreshToken, redeemCode } from "@/lib/mcp/oauth";
+import { clientSecretValid, issueTokens, mcpEnabled, readClientId, readRefreshToken, redeemCode } from "@/lib/mcp/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,16 +23,23 @@ export async function POST(request: NextRequest) {
   const raw = type.includes("application/json") ? await request.json().catch(() => ({})) : Object.fromEntries((await request.formData().catch(() => new FormData())).entries());
   const p = raw as Record<string, string | undefined>;
 
-  // Public client; a client_secret_basic header (if sent) only carries the client id.
+  // Client auth: client_secret_basic header, client_secret_post fields, or a public client (id only, PKCE).
   let clientId = p.client_id;
+  let clientSecret = p.client_secret;
   const basic = request.headers.get("authorization")?.match(/^Basic\s+(.+)$/i)?.[1];
-  if (!clientId && basic) clientId = decodeURIComponent(Buffer.from(basic, "base64").toString("utf8").split(":")[0] ?? "");
+  if (basic) {
+    const decoded = Buffer.from(basic, "base64").toString("utf8");
+    const i = decoded.indexOf(":");
+    clientId = decodeURIComponent(i >= 0 ? decoded.slice(0, i) : decoded);
+    clientSecret = i >= 0 ? decodeURIComponent(decoded.slice(i + 1)) : undefined;
+  }
   if (!clientId || !readClientId(clientId)) return oauthError("invalid_client", "Unknown client", 401);
+  if (clientSecret && !clientSecretValid(clientId, clientSecret)) return oauthError("invalid_client", "Bad client secret", 401);
 
   let userId: string | null = null;
   if (p.grant_type === "authorization_code") {
-    if (!p.code || !p.code_verifier) return oauthError("invalid_request", "code and code_verifier are required");
-    userId = redeemCode(p.code, clientId, p.redirect_uri ?? null, p.code_verifier);
+    if (!p.code) return oauthError("invalid_request", "code is required");
+    userId = redeemCode(p.code, clientId, p.redirect_uri ?? null, p.code_verifier, Boolean(clientSecret));
     if (!userId) return oauthError("invalid_grant", "Invalid or expired code");
   } else if (p.grant_type === "refresh_token") {
     userId = readRefreshToken(p.refresh_token, clientId);

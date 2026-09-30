@@ -15,7 +15,7 @@ interface AuthRequest {
   clientName: string;
   redirectUri: string;
   state: string | null;
-  codeChallenge: string;
+  codeChallenge: string | null;
 }
 
 /** Validates an authorization request. Errors that make the redirect URI untrustworthy are shown, never redirected. */
@@ -26,8 +26,9 @@ function parseRequest(sp: SP): { ok: true; req: AuthRequest } | { ok: false; mes
   const redirectUri = first(sp.redirect_uri) ?? (client.redirect_uris.length === 1 ? client.redirect_uris[0] : undefined);
   if (!redirectUri || !client.redirect_uris.includes(redirectUri)) return { ok: false, message: "Redirect address does not match the registered app." };
   if (first(sp.response_type) !== "code") return { ok: false, message: "Unsupported response_type." };
-  const codeChallenge = first(sp.code_challenge);
-  if (!codeChallenge || (first(sp.code_challenge_method) ?? "plain") !== "S256") return { ok: false, message: "PKCE (S256) is required." };
+  // PKCE is optional here; the token endpoint then requires the client secret instead.
+  const codeChallenge = first(sp.code_challenge) || null;
+  if (codeChallenge && (first(sp.code_challenge_method) ?? "plain") !== "S256") return { ok: false, message: "Only S256 PKCE is supported." };
   return { ok: true, req: { clientId, clientName: client.client_name || "Gemini", redirectUri, state: first(sp.state) || null, codeChallenge } };
 }
 
@@ -89,7 +90,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   }
 
   const { req } = parsed;
-  const hidden = { client_id: req.clientId, redirect_uri: req.redirectUri, response_type: "code", code_challenge: req.codeChallenge, code_challenge_method: "S256", state: req.state ?? "" };
+  const hidden = { client_id: req.clientId, redirect_uri: req.redirectUri, response_type: "code", code_challenge: req.codeChallenge ?? "", code_challenge_method: req.codeChallenge ? "S256" : "", state: req.state ?? "" };
   return (
     <Card>
       <div className="flex items-center gap-3">

@@ -70,7 +70,7 @@ export function authServerMetadata(base: string) {
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
-    scopes_supported: [MCP_SCOPE],
+    scopes_supported: [MCP_SCOPE, "offline_access"],
   };
 }
 
@@ -114,25 +114,40 @@ export function readClientId(clientId: string | null | undefined): ClientInfo | 
   return d ? { redirect_uris: d.r, client_name: d.n ?? undefined } : null;
 }
 
+/** Secret for clients that register as confidential (Gemini asks for client_secret_basic); derived, not stored. */
+export function clientSecretFor(clientId: string): string {
+  return createHmac("sha256", secret()).update(`client-secret.${clientId}`).digest("base64url");
+}
+
+export function clientSecretValid(clientId: string, given: string): boolean {
+  const a = Buffer.from(clientSecretFor(clientId));
+  const b = Buffer.from(given);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 /* --------------------------------------------------------------- codes */
 
 interface CodeData {
   uid: string;
   cid: string;
   ru: string;
-  cc: string;
+  cc: string | null;
 }
 
-export function issueCode(data: { userId: string; clientId: string; redirectUri: string; codeChallenge: string }): string {
+export function issueCode(data: { userId: string; clientId: string; redirectUri: string; codeChallenge: string | null }): string {
   return sign("code", { uid: data.userId, cid: data.clientId, ru: data.redirectUri, cc: data.codeChallenge }, CODE_TTL_S);
 }
 
-export function redeemCode(code: string, clientId: string, redirectUri: string | null, verifier: string): string | null {
+/** PKCE is checked when the code has a challenge; codes without one need an authenticated (secret) client. */
+export function redeemCode(code: string, clientId: string, redirectUri: string | null, verifier: string | undefined, clientAuthenticated: boolean): string | null {
   const d = verify<CodeData & Record<string, unknown>>("code", code);
   if (!d || d.cid !== clientId) return null;
   if (redirectUri && redirectUri !== d.ru) return null;
-  const challenge = createHash("sha256").update(verifier).digest("base64url");
-  if (challenge !== d.cc) return null;
+  if (d.cc) {
+    if (!verifier || createHash("sha256").update(verifier).digest("base64url") !== d.cc) return null;
+  } else if (!clientAuthenticated) {
+    return null;
+  }
   return d.uid;
 }
 
