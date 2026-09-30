@@ -15,6 +15,7 @@
     "backup:authorize-drive": "node scripts/authorize_google_drive.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "@types/qrcode": "^1.5.6",
