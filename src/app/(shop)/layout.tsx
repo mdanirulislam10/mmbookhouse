@@ -3,7 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { getSettings } from "@/lib/data/settings";
 import { getCartCount } from "@/lib/data/cart";
-import { getStaff } from "@/lib/data/session";
+import { getSessionUser, getStaff } from "@/lib/data/session";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n";
 import { InstallPrompt } from "@/components/layout/Pwa";
@@ -25,13 +25,14 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
     );
   }
 
-  const cartCount = await getCartCount();
+  const [cartCount, user] = await Promise.all([getCartCount(), getSessionUser()]);
+  const userName = user ? (user.fullName ?? user.email ?? "").split(/[ @]/)[0] || null : null;
   return (
     <>
       <Header />
       <main className="min-h-[60vh] pb-20 md:pb-0">{children}</main>
       <Footer />
-      <MobileNav cartCount={cartCount} />
+      <MobileNav cartCount={cartCount} userName={userName} />
       <InstallPrompt />
     </>
   );

@@ -15,6 +15,20 @@ const PAGE_CSS: Record<string, string> = {
   invoice: "@page { size: A4; margin: 0 }",
 };
 
+/**
+ * Browsers round a sheet that is exactly one page tall up to a second page, so the extra blank sheet appears.
+ * On paper every sheet is a hair shorter than the page, the screen-height wrappers are neutralised, and no
+ * page break follows the last sheet.
+ */
+const PRINT_FIX = `@media print {
+  .print-bar { display: none }
+  html, body, .min-h-screen { min-height: 0 !important; height: auto !important; }
+  .invoice-page { min-height: 296mm !important; break-after: page; page-break-after: always; }
+  .slip-page { min-height: 209mm !important; }
+  .label-page { height: 151.5mm !important; overflow: hidden; }
+  .invoice-page:last-child, .slip-page:last-child, .label-page:last-child { break-after: auto !important; page-break-after: auto !important; }
+}`;
+
 export default async function PrintPage({ params, searchParams }: { params: Promise<{ type: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const staff = await requireStaff(["dispatch_staff", "inventory_manager"]);
   const { type } = await params;
@@ -30,7 +44,7 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
 
   return (
     <div className="min-h-screen bg-slate-200 print:bg-white">
-      <style>{`${PAGE_CSS[type]} body { background: white; } @media print { .print-bar { display: none } }`}</style>
+      <style>{`${PAGE_CSS[type]} body { background: white; } ${PRINT_FIX}`}</style>
       <PrintBar count={orders.length} />
       {/* Sheets have fixed paper sizes; on a phone the preview scrolls sideways instead of being cut off on the left. */}
       <div className="overflow-x-auto">

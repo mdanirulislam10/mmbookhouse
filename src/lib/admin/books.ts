@@ -128,12 +128,14 @@ export async function getBookForEdit(id: string, withCost: boolean): Promise<Boo
 
 export async function getFormLookups() {
   const service = createServiceClient();
-  const [{ data: cats }, { data: pubs }] = await Promise.all([
+  const [{ data: cats }, { data: pubs }, { data: auths }] = await Promise.all([
     service.from("categories").select("id, parent_id, name, name_bn, slug, is_active, sort_order").order("sort_order").order("name"),
-    service.from("publishers").select("name").order("name").limit(1000),
+    service.from("publishers").select("name, name_bn").order("name").limit(5000),
+    service.from("authors").select("name, name_bn").order("name").limit(5000),
   ]);
   return {
     categories: (cats ?? []) as { id: string; parent_id: string | null; name: string; name_bn: string | null; slug: string; is_active: boolean; sort_order: number }[],
-    publishers: (pubs ?? []).map((p) => p.name as string),
+    publishers: (pubs ?? []) as { name: string; name_bn: string | null }[],
+    authors: (auths ?? []) as { name: string; name_bn: string | null }[],
   };
 }

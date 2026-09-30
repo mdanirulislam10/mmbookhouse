@@ -17,8 +17,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const service = createServiceClient();
   const [{ data: cats }, { data: authors }, { data: pubs }] = await Promise.all([
     service.from("categories").select("id, parent_id, name, name_bn, sort_order, show_on_home, is_active, slug").order("sort_order").order("name"),
-    tab === "authors" ? service.from("authors").select("id, name, name_bn").order("name").limit(500) : Promise.resolve({ data: [] }),
-    tab === "publishers" ? service.from("publishers").select("id, name, name_bn").order("name").limit(500) : Promise.resolve({ data: [] }),
+    tab === "authors" ? service.from("authors").select("id, name, name_bn").order("name").limit(5000) : Promise.resolve({ data: [] }),
+    tab === "publishers" ? service.from("publishers").select("id, name, name_bn").order("name").limit(5000) : Promise.resolve({ data: [] }),
   ]);
   const tabs = [
     { k: "categories", l: t("admin.book.categories") },

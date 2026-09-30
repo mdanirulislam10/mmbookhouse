@@ -98,3 +98,49 @@ async function savePerson(table: "authors" | "publishers", input: { id: string; 
 }
 export const saveAuthor = async (input: { id: string; name: string; name_bn?: string }) => savePerson("authors", input);
 export const savePublisher = async (input: { id: string; name: string; name_bn?: string }) => savePerson("publishers", input);
+
+/** Adds an author or publisher by name. The same name (any letter case) is never added twice. */
+async function createPerson(table: "authors" | "publishers", input: { name: string; name_bn?: string }): Promise<ActionResult<{ id: string; name: string }>> {
+  const parsed = z.object({ name: z.string().trim().min(1, "NAME_REQUIRED").max(120), name_bn: opt(120) }).safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "INVALID_INPUT");
+  const staff = await authorize("catalog");
+  if (!staff) return FORBIDDEN;
+  const service = createServiceClient();
+  // Compare in code (case-insensitively) so LIKE wildcards in a name can never match other rows.
+  const { data: all } = await service.from(table).select("name").limit(10000);
+  if ((all ?? []).some((r) => String(r.name).toLowerCase() === parsed.data.name.toLowerCase())) return fail("NAME_EXISTS");
+  const base = slugify(parsed.data.name) || `${table === "authors" ? "author" : "publisher"}-${randomSuffix(6)}`;
+  let slug = base;
+  for (let i = 0; i < 5; i++) {
+    const { data } = await service.from(table).select("id").eq("slug", slug).maybeSingle();
+    if (!data) break;
+    slug = `${base}-${randomSuffix(3)}`;
+  }
+  const { data, error } = await service.from(table).insert({ slug, name: parsed.data.name, name_bn: parsed.data.name_bn }).select("id, name").single();
+  if (error || !data) return dbError(error);
+  await writeAudit(staff, `${table}.create`, table, data.id as string, { after: parsed.data.name });
+  invalidate();
+  return { ok: true, data: { id: data.id as string, name: data.name as string } };
+}
+export const createAuthor = async (input: { name: string; name_bn?: string }) => createPerson("authors", input);
+export const createPublisher = async (input: { name: string; name_bn?: string }) => createPerson("publishers", input);
+
+/** Removes an author or publisher that no book uses. */
+async function deletePerson(table: "authors" | "publishers", id: string): Promise<ActionResult> {
+  if (!uuid.safeParse(id).success) return fail("INVALID_INPUT");
+  const staff = await authorize("catalog");
+  if (!staff) return FORBIDDEN;
+  const service = createServiceClient();
+  const used =
+    table === "authors"
+      ? await service.from("book_authors").select("book_id", { count: "exact", head: true }).eq("author_id", id)
+      : await service.from("books").select("id", { count: "exact", head: true }).eq("publisher_id", id);
+  if ((used.count ?? 0) > 0) return fail("IN_USE");
+  const { error } = await service.from(table).delete().eq("id", id);
+  if (error) return dbError(error);
+  await writeAudit(staff, `${table}.delete`, table, id);
+  invalidate();
+  return { ok: true };
+}
+export const deleteAuthor = async (id: string) => deletePerson("authors", id);
+export const deletePublisher = async (id: string) => deletePerson("publishers", id);

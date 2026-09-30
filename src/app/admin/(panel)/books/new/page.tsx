@@ -10,11 +10,11 @@ export const dynamic = "force-dynamic";
 export default async function NewBookPage() {
   const staff = await requireStaff(["inventory_manager"]);
   const { t } = await getT();
-  const { categories, publishers } = await getFormLookups();
+  const { categories, publishers, authors } = await getFormLookups();
   return (
     <div>
       <PageHeader title={t("admin.books.new")} />
-      <BookForm categories={categories} publishers={publishers} canSeeCost={canSeeMoney(staff.role)} />
+      <BookForm categories={categories} publishers={publishers} authors={authors} canSeeCost={canSeeMoney(staff.role)} />
     </div>
   );
 }

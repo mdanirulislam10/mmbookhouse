@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MailCheck } from "lucide-react";
@@ -8,8 +8,10 @@ import { useT } from "@/lib/i18n/client";
 import { errorMessage } from "@/lib/i18n/errors";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { CodeEntry } from "@/components/account/CodeEntry";
 import { createClient } from "@/lib/supabase/browser";
-import { sendEmailCode, signInWithPassword, signUpWithPassword, verifyEmailCode } from "@/app/actions/auth";
+import { resendSignupCode, sendEmailCode, signInWithPassword, signUpWithPassword, verifyEmailCode } from "@/app/actions/auth";
 import { cn } from "@/lib/utils";
 
 type Mode = "signin" | "signup";
@@ -25,16 +27,9 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true, go
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
+  // Set once a code has been e-mailed: which step it belongs to and how many digits to expect.
+  const [codeStep, setCodeStep] = useState<{ purpose: "auth" | "signup"; length: number } | null>(null);
   const [confirmSent, setConfirmSent] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => window.clearTimeout(id);
-  }, [cooldown]);
 
   const done = () => {
     router.replace(next);
@@ -52,29 +47,26 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true, go
       }
       const res = await signUpWithPassword({ email, password, fullName: name, next });
       if (!res.ok) return problem(res);
-      if (res.data?.needsConfirmation) setConfirmSent(true);
+      if (res.data?.codeLength) setCodeStep({ purpose: "signup", length: res.data.codeLength });
+      else if (res.data?.needsConfirmation) setConfirmSent(true);
       else done();
     });
   };
 
-  const requestCode = () => {
+  const requestCode = (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
     start(async () => {
       const res = await sendEmailCode({ email, next });
       if (!res.ok) return problem(res);
-      setCodeSent(true);
-      setCooldown(45);
+      setCodeStep({ purpose: "auth", length: res.data?.codeLength ?? 6 });
     });
   };
 
-  const submitCode = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!codeSent) return requestCode();
-    setError(null);
-    start(async () => {
-      const res = await verifyEmailCode({ email, code });
-      return res.ok ? done() : problem(res);
-    });
+  const verify = async (code: string) => {
+    const res = await verifyEmailCode({ email, code, purpose: codeStep?.purpose });
+    if (res.ok) done();
+    return res;
   };
 
   const google = async () => {
@@ -96,6 +88,22 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true, go
         <Button className="mt-5" variant="secondary" onClick={() => { setConfirmSent(false); setMode("signin"); }}>
           {t("auth.signInBtn")}
         </Button>
+      </div>
+    );
+  }
+
+  if (codeStep) {
+    return (
+      <div className="card p-6">
+        <h1 className="mb-4 text-2xl font-bold">{codeStep.purpose === "signup" ? t("auth.verifyEmailTitle") : t("auth.signInTitle")}</h1>
+        <CodeEntry
+          email={email}
+          length={codeStep.length}
+          cta={codeStep.purpose === "signup" ? t("auth.verifyCreate") : t("auth.verifyCode")}
+          onVerify={verify}
+          onResend={() => (codeStep.purpose === "signup" ? resendSignupCode({ email }) : sendEmailCode({ email, next }))}
+          onBack={() => { setCodeStep(null); setError(null); }}
+        />
       </div>
     );
   }
@@ -154,12 +162,12 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true, go
             </Field>
           ) : null}
           <Field label={t("auth.email")} htmlFor="email">
-            <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input id="email" name="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           <Field label={t("auth.password")} hint={mode === "signup" ? t("auth.passwordHint") : undefined} htmlFor="password">
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
+              name="password"
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
               required
               minLength={mode === "signup" ? 8 : 1}
@@ -179,26 +187,13 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true, go
           </Button>
         </form>
       ) : (
-        <form onSubmit={submitCode} className="space-y-3">
+        <form onSubmit={requestCode} className="space-y-3">
           <Field label={t("auth.email")} htmlFor="email2">
-            <Input id="email2" type="email" autoComplete="email" required value={email} onChange={(e) => { setEmail(e.target.value); setCodeSent(false); }} />
+            <Input id="email2" name="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          {codeSent ? (
-            <>
-              <p className="text-sm text-slate-600">{t("auth.codeSentTo", { email })}</p>
-              <Field label={t("auth.code")} htmlFor="code">
-                <Input id="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6,8}" maxLength={8} required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="text-center text-lg tracking-[0.4em]" />
-              </Field>
-            </>
-          ) : null}
           <Button type="submit" size="lg" className="w-full" disabled={pending}>
-            {pending ? t("common.loading") : codeSent ? t("auth.verifyCode") : t("auth.sendCode")}
+            {pending ? t("common.loading") : t("auth.sendCode")}
           </Button>
-          {codeSent ? (
-            <button type="button" className="link w-full text-center text-sm disabled:text-slate-400 disabled:no-underline" disabled={cooldown > 0 || pending} onClick={requestCode}>
-              {cooldown > 0 ? t("auth.resendIn", { s: cooldown }) : t("auth.resend")}
-            </button>
-          ) : null}
         </form>
       )}
 

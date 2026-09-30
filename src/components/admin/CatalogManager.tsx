@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
-import { deleteCategory, saveAuthor, saveCategory, savePublisher } from "@/app/admin/actions/catalog";
+import { createAuthor, createPublisher, deleteAuthor, deleteCategory, deletePublisher, saveAuthor, saveCategory, savePublisher } from "@/app/admin/actions/catalog";
 import { useRun } from "@/components/admin/useRun";
 import { Panel, Table, Td, Th } from "@/components/admin/ui";
 import { Button } from "@/components/ui/Button";
@@ -50,7 +50,12 @@ function PersonRow({ p, kind }: { p: Person; kind: "author" | "publisher" }) {
     <tr>
       <Td><Input value={name} onChange={(e) => setName(e.target.value)} className="h-8" /></Td>
       <Td><Input value={bn} onChange={(e) => setBn(e.target.value)} className="h-8" /></Td>
-      <Td><Button size="sm" disabled={pending || !dirty} onClick={() => run(() => (kind === "author" ? saveAuthor : savePublisher)({ id: p.id, name, name_bn: bn }))}>{t("common.save")}</Button></Td>
+      <Td>
+        <div className="flex gap-1">
+          <Button size="sm" disabled={pending || !dirty} onClick={() => run(() => (kind === "author" ? saveAuthor : savePublisher)({ id: p.id, name, name_bn: bn }))}>{t("common.save")}</Button>
+          <Button size="sm" variant="ghost" disabled={pending} aria-label={t("common.delete")} onClick={() => confirm(t("admin.catalog.deleteConfirm")) && run(() => (kind === "author" ? deleteAuthor : deletePublisher)(p.id))}><Trash2 size={14} /></Button>
+        </div>
+      </Td>
     </tr>
   );
 }
@@ -59,6 +64,8 @@ export function CatalogManager({ categories, authors, publishers, tab }: { categ
   const { t } = useT();
   const { run, pending } = useRun();
   const [nc, setNc] = useState({ name: "", name_bn: "", parent_id: "" });
+  const [np, setNp] = useState({ name: "", name_bn: "" });
+  const [filter, setFilter] = useState("");
 
   if (tab === "categories") {
     return (
@@ -93,13 +100,33 @@ export function CatalogManager({ categories, authors, publishers, tab }: { categ
       </div>
     );
   }
+  const kind = tab === "authors" ? "author" : "publisher";
   const list = tab === "authors" ? authors : publishers;
+  const shown = filter.trim() ? list.filter((p) => `${p.name} ${p.name_bn ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase())) : list;
   return (
-    <Panel padded={false}>
-      <Table>
-        <thead><tr><Th>{t("admin.book.titleEn")}</Th><Th>{t("admin.book.titleBn")}</Th><Th /></tr></thead>
-        <tbody>{list.map((p) => <PersonRow key={p.id} p={p} kind={tab === "authors" ? "author" : "publisher"} />)}</tbody>
-      </Table>
-    </Panel>
+    <div className="space-y-4">
+      <Panel title={kind === "author" ? t("admin.catalog.addAuthor") : t("admin.catalog.addPublisher")}>
+        <form
+          className="grid gap-3 sm:grid-cols-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(() => (kind === "author" ? createAuthor : createPublisher)({ name: np.name, name_bn: np.name_bn }), { onOk: () => setNp({ name: "", name_bn: "" }) });
+          }}
+        >
+          <Field label={t("admin.book.titleEn")} htmlFor="np-name"><Input id="np-name" required maxLength={120} value={np.name} onChange={(e) => setNp({ ...np, name: e.target.value })} /></Field>
+          <Field label={t("admin.book.titleBn")} hint={t("common.optional")} htmlFor="np-bn"><Input id="np-bn" maxLength={120} value={np.name_bn} onChange={(e) => setNp({ ...np, name_bn: e.target.value })} className="font-bengali" /></Field>
+          <div className="flex items-end"><Button type="submit" disabled={pending}>{t("common.add")}</Button></div>
+        </form>
+      </Panel>
+      <Panel padded={false}>
+        <div className="border-b p-3">
+          <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`${t("admin.catalog.filter")} (${list.length})`} className="h-9 max-w-sm" />
+        </div>
+        <Table>
+          <thead><tr><Th>{t("admin.book.titleEn")}</Th><Th>{t("admin.book.titleBn")}</Th><Th /></tr></thead>
+          <tbody>{shown.map((p) => <PersonRow key={p.id} p={p} kind={kind} />)}</tbody>
+        </Table>
+      </Panel>
+    </div>
   );
 }

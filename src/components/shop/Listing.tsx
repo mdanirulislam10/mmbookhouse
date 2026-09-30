@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SlidersHorizontal, SearchX } from "lucide-react";
+import { SearchX } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { getWishlistIds } from "@/lib/data/wishlist";
 import { searchBooks, SORTS } from "@/lib/data/catalog";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Field";
 import { BookCard, BookGrid } from "./BookCard";
 import { SortSelect } from "./SortSelect";
+import { FilterSheet } from "./FilterSheet";
 
 export type RawParams = Record<string, string | string[] | undefined>;
 const PAGE_SIZE = 24;
@@ -119,12 +120,7 @@ export async function Listing({
               {t("list.showing", { count: total })}
             </p>
             <div className="flex items-center gap-2">
-              <details className="relative lg:hidden">
-                <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full border border-slate-300 px-3 py-1.5 text-sm">
-                  <SlidersHorizontal size={14} /> {t("list.filters")}
-                </summary>
-                <div className="absolute right-0 z-30 mt-2 w-72 rounded-lg border bg-white p-4 shadow-pop">{filters}</div>
-              </details>
+              <FilterSheet active={hasFilters}>{filters}</FilterSheet>
               <SortSelect current={f.sort} basePath={basePath} keep={keep} options={SORTS.map((s) => ({ value: s, label: t(`sort.${s}` as "sort.relevance") }))} label={t("list.sortBy")} />
             </div>
           </div>

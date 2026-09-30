@@ -21,6 +21,17 @@ export const en = {
   "admin.notify.event": "Message",
   "err.PROVIDER_NOT_CONFIGURED": "This channel is not connected yet.",
   "err.SEND_FAILED": "The provider rejected the message: {detail}",
+  "err.NAME_EXISTS": "This name is already in the list.",
+  "err.IN_USE": "Books still use this name, so it cannot be deleted.",
+  "admin.catalog.addAuthor": "Add author",
+  "admin.catalog.addPublisher": "Add publisher",
+  "admin.catalog.filter": "Search the list",
+  "admin.catalog.usedBy": "Books",
+  "admin.pick.addNew": "Add “{name}” as new",
+  "admin.pick.noMatch": "No match. Type the full name and press Enter to add it.",
+  "admin.pick.searchOrAdd": "Search the list or type a new name",
+  "admin.pick.fromList": "From your list",
+  "admin.pick.clear": "Clear",
 } as const;
 
 export const bn = {
@@ -46,4 +57,15 @@ export const bn = {
   "admin.notify.event": "বার্তা",
   "err.PROVIDER_NOT_CONFIGURED": "এই মাধ্যমটি এখনো সংযুক্ত হয়নি।",
   "err.SEND_FAILED": "প্রোভাইডার বার্তাটি নেয়নি: {detail}",
+  "err.NAME_EXISTS": "এই নাম তালিকায় আগেই আছে।",
+  "err.IN_USE": "এই নামে এখনও বই আছে, তাই মোছা যাবে না।",
+  "admin.catalog.addAuthor": "লেখক যোগ করুন",
+  "admin.catalog.addPublisher": "প্রকাশক যোগ করুন",
+  "admin.catalog.filter": "তালিকায় খুঁজুন",
+  "admin.catalog.usedBy": "বই",
+  "admin.pick.addNew": "নতুন যোগ করুন: “{name}”",
+  "admin.pick.noMatch": "মিলছে না। পুরো নাম লিখে Enter চাপলে নতুন যোগ হবে।",
+  "admin.pick.searchOrAdd": "তালিকায় খুঁজুন বা নতুন নাম লিখুন",
+  "admin.pick.fromList": "আপনার তালিকা থেকে",
+  "admin.pick.clear": "মুছুন",
 } as const satisfies Record<keyof typeof en, string>;

@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { saveBook } from "@/app/admin/actions/books";
 import { ImageUploader } from "@/components/admin/ImageUploader";
+import { PersonPicker, type PersonOption } from "@/components/admin/PersonPicker";
 import { Panel } from "@/components/admin/ui";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
@@ -24,13 +24,12 @@ const EMPTY: BookFormData = {
   status: "draft", is_featured: false, related: [],
 };
 
-export function BookForm({ initial, categories, publishers, canSeeCost }: { initial?: BookFormData; categories: Cat[]; publishers: string[]; canSeeCost: boolean }) {
+export function BookForm({ initial, categories, publishers, authors, canSeeCost }: { initial?: BookFormData; categories: Cat[]; publishers: PersonOption[]; authors: PersonOption[]; canSeeCost: boolean }) {
   const { t, lang } = useT();
   const router = useRouter();
   const toast = useToast();
   const isNew = !initial;
   const [f, setF] = useState<BookFormData>(initial ?? EMPTY);
-  const [authorDraft, setAuthorDraft] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof BookFormData>(k: K, v: BookFormData[K]) => setF((cur) => ({ ...cur, [k]: v }));
@@ -44,12 +43,6 @@ export function BookForm({ initial, categories, publishers, canSeeCost }: { init
   const roots = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const childrenOf = (id: string) => categories.filter((c) => c.parent_id === id);
   const toggleCat = (id: string) => set("category_ids", f.category_ids.includes(id) ? f.category_ids.filter((c) => c !== id) : [...f.category_ids, id]);
-
-  const addAuthor = () => {
-    const names = authorDraft.split(/[,;]/).map((n) => n.trim()).filter(Boolean);
-    if (names.length) set("authors", [...new Set([...f.authors, ...names])].slice(0, 10));
-    setAuthorDraft("");
-  };
 
   const submit = async (e: React.FormEvent, status?: BookFormData["status"]) => {
     e.preventDefault();
@@ -99,33 +92,12 @@ export function BookForm({ initial, categories, publishers, canSeeCost }: { init
               </Field>
               <div className="sm:col-span-2">
                 <label htmlFor="b-authors" className="mb-1 block text-sm font-medium">{t("admin.book.authors")}</label>
-                <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-slate-300 bg-white p-1.5">
-                  {f.authors.map((a) => (
-                    <span key={a} className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-sm">
-                      {a}
-                      <button type="button" aria-label={t("common.delete")} onClick={() => set("authors", f.authors.filter((x) => x !== a))}><X size={12} /></button>
-                    </span>
-                  ))}
-                  <input
-                    id="b-authors"
-                    value={authorDraft}
-                    onChange={(e) => setAuthorDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === ",") {
-                        e.preventDefault();
-                        addAuthor();
-                      }
-                    }}
-                    onBlur={addAuthor}
-                    placeholder={t("admin.book.authorsHint")}
-                    className="min-w-[160px] flex-1 border-0 bg-transparent px-1 py-1 text-sm outline-none"
-                  />
-                </div>
+                <PersonPicker multi id="b-authors" options={authors} value={f.authors} onChange={(v) => set("authors", v)} placeholder={t("admin.book.authorsHint")} />
               </div>
-              <Field label={t("book.publisher")} htmlFor="b-pub">
-                <Input id="b-pub" list="publishers" value={f.publisher} onChange={text("publisher")} maxLength={120} />
-                <datalist id="publishers">{publishers.map((p) => <option key={p} value={p} />)}</datalist>
-              </Field>
+              <div>
+                <label htmlFor="b-pub" className="mb-1 block text-sm font-medium">{t("book.publisher")}</label>
+                <PersonPicker id="b-pub" options={publishers} value={f.publisher} onChange={(v) => set("publisher", v)} />
+              </div>
               <Field label="ISBN" hint="10 / 13" htmlFor="b-isbn">
                 <Input id="b-isbn" value={f.isbn} onChange={text("isbn")} inputMode="numeric" maxLength={17} className="font-mono" />
               </Field>

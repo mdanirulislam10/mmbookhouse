@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/client";
 import { errorMessage } from "@/lib/i18n/errors";
 import { Button } from "@/components/ui/Button";
-import { Field, Input } from "@/components/ui/Field";
+import { Field } from "@/components/ui/Field";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { updatePassword } from "@/app/actions/auth";
 
 export function ResetForm() {
@@ -36,7 +37,7 @@ export function ResetForm() {
         <form onSubmit={submit} className="space-y-3">
           {error ? <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
           <Field label={t("auth.newPassword")} hint={t("auth.passwordHint")} htmlFor="pw">
-            <Input id="pw" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput id="pw" name="password" autoComplete="new-password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           <Button type="submit" size="lg" className="w-full" disabled={pending}>
             {t("auth.updatePassword")}

@@ -32,7 +32,7 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           </>
         }
       />
-      <BookForm initial={book} categories={lookups.categories} publishers={lookups.publishers} canSeeCost={canSeeMoney(staff.role)} />
+      <BookForm initial={book} categories={lookups.categories} publishers={lookups.publishers} authors={lookups.authors} canSeeCost={canSeeMoney(staff.role)} />
       {can(staff.role, "marketing") ? (
         <Panel title={t("admin.related.title")}>
           <RelatedEditor bookId={book.id} initial={book.related} />

@@ -8,9 +8,13 @@ export async function updateSession(request: NextRequest) {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(list: { name: string; value: string; options: CookieOptions }[]) {
-        for (const { name, value } of list) request.cookies.set(name, value);
+        // Empty values are cookie deletions. A refresh that fails only because another tab or request refreshed the
+        // same session a moment earlier must not sign the visitor out, so the session cookie is only ever replaced
+        // here, never removed. Signing out has its own route (/auth/signout).
+        const updates = list.filter((c) => c.value !== "");
+        for (const { name, value } of updates) request.cookies.set(name, value);
         response = NextResponse.next({ request });
-        for (const { name, value, options } of list) response.cookies.set(name, value, options);
+        for (const { name, value, options } of updates) response.cookies.set(name, value, options);
       },
     },
   });
