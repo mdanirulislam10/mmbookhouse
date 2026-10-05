@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/utils";
+import { landingPath } from "@/lib/auth/landing";
 
 /**
  * Landing point for e-mail links (confirm sign-up, magic link, password reset) and OAuth (Google).
@@ -23,5 +24,5 @@ export async function GET(request: NextRequest) {
   }
 
   if (!ok) return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
-  return NextResponse.redirect(new URL(next, url.origin));
+  return NextResponse.redirect(new URL(await landingPath(next), url.origin));
 }

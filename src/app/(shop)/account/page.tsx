@@ -23,10 +23,10 @@ export default async function AccountPage() {
   const prefs = { email: nm.email ?? true, sms: nm.sms ?? true, whatsapp: nm.whatsapp ?? true };
 
   const cards = [
+    ...(partner ? [{ href: "/partner", icon: Handshake, title: t("partner.panel"), text: t(`partner.status.${partner.status}`) }] : []),
     { href: "/account/orders", icon: Package, title: t("account.orders"), text: t("account.ordersText") },
     { href: "/account/addresses", icon: MapPin, title: t("account.addresses"), text: t("account.addressesText") },
     { href: "/account/wishlist", icon: Heart, title: t("account.wishlist"), text: t("account.wishlistText") },
-    ...(partner ? [{ href: "/partner", icon: Handshake, title: t("partner.panel"), text: t(`partner.status.${partner.status}`) }] : []),
   ];
 
   return (

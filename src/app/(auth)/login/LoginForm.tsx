@@ -17,7 +17,24 @@ import { cn } from "@/lib/utils";
 type Mode = "signin" | "signup";
 type Tab = "password" | "code";
 
-export function LoginForm({ next, initialMode, linkError, allowSignUp = true, googleEnabled = false }: { next: string; initialMode: Mode; linkError: boolean; allowSignUp?: boolean; googleEnabled?: boolean }) {
+export function LoginForm({
+  next,
+  initialMode,
+  linkError,
+  allowSignUp = true,
+  googleEnabled = false,
+  heading,
+  intro,
+}: {
+  next: string;
+  initialMode: Mode;
+  linkError: boolean;
+  allowSignUp?: boolean;
+  googleEnabled?: boolean;
+  /** Replaces the default sign-in title (e.g. on the partner sign-in page). */
+  heading?: string;
+  intro?: string;
+}) {
   const { t, lang } = useT();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -32,7 +49,7 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true, go
   const [confirmSent, setConfirmSent] = useState(false);
 
   const done = () => {
-    router.replace(next);
+    router.replace(`/auth/landing?next=${encodeURIComponent(next)}`);
     router.refresh();
   };
   const problem = (res: { error: string; detail?: string }) => setError(errorMessage(lang, res.error, res.detail));
@@ -110,7 +127,8 @@ export function LoginForm({ next, initialMode, linkError, allowSignUp = true, go
 
   return (
     <div className="card p-6">
-      <h1 className="mb-4 text-2xl font-bold">{mode === "signin" ? t("auth.signInTitle") : t("auth.signUpTitle")}</h1>
+      <h1 className="mb-4 text-2xl font-bold">{heading && mode === "signin" ? heading : mode === "signin" ? t("auth.signInTitle") : t("auth.signUpTitle")}</h1>
+      {intro ? <p className="-mt-2 mb-4 text-sm text-slate-600">{intro}</p> : null}
 
       {googleEnabled ? (
         <>

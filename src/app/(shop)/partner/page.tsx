@@ -102,11 +102,21 @@ export default async function PartnerPage() {
       </ol>
 
       {!user ? (
-        <div className="card mt-6 p-5">
-          <p>{t("partner.loginFirst")}</p>
-          <LinkButton href="/login?next=/partner" className="mt-3">
-            {t("partner.loginButton")}
-          </LinkButton>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="card p-5">
+            <h2 className="font-semibold">{t("partner.login.existing")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t("partner.login.existingText")}</p>
+            <LinkButton href="/partner/login" className="mt-3">
+              {t("partner.login.button")}
+            </LinkButton>
+          </div>
+          <div className="card p-5">
+            <h2 className="font-semibold">{t("partner.login.new")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t("partner.loginFirst")}</p>
+            <LinkButton href="/partner/login?mode=signup" variant="secondary" className="mt-3">
+              {t("partner.login.apply")}
+            </LinkButton>
+          </div>
         </div>
       ) : partner?.status === "pending" ? (
         <div className="card mt-6 flex items-center gap-3 p-5 text-amber-800">
