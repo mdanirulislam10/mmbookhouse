@@ -60,6 +60,16 @@ function NoticeAndMaintenance({ notice, maint }: { notice: PublicSettings["notic
           <Field label={t("admin.settings.text")} htmlFor="nb-t"><Input id="nb-t" value={n.text} onChange={(e) => setN({ ...n, text: e.target.value })} maxLength={200} /></Field>
           <Field label={`${t("admin.settings.text")} (বাংলা)`} htmlFor="nb-tb"><Input id="nb-tb" value={n.text_bn} onChange={(e) => setN({ ...n, text_bn: e.target.value })} maxLength={200} /></Field>
           <Field label={t("admin.banner.link")} hint={t("common.optional")} htmlFor="nb-h"><Input id="nb-h" value={n.href} onChange={(e) => setN({ ...n, href: e.target.value })} /></Field>
+          {(n.text_bn || n.text).trim() ? (
+            n.enabled ? (
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500">{t("admin.settings.noticeLive")}</p>
+                <div className="rounded bg-brand-amber px-3 py-1.5 text-center text-xs font-medium text-brand-ink">{n.text_bn || n.text}</div>
+              </div>
+            ) : (
+              <p role="alert" className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">{t("admin.settings.noticeOffWarn")}</p>
+            )
+          ) : null}
           <Button disabled={a.pending} onClick={() => a.run(() => saveSetting("notice_bar", n))}>{t("common.save")}</Button>
         </div>
       </Panel>

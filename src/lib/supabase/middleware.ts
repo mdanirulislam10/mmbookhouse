@@ -18,8 +18,11 @@ export async function updateSession(request: NextRequest) {
       },
     },
   });
+  // getSession() reads the cookie and only calls Supabase when the token must be refreshed, so ordinary page loads
+  // (and link prefetches) skip a network round trip. It is only used for cheap redirects here: every protected
+  // page and action verifies the user again with getUser().
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { response, user };
+    data: { session },
+  } = await supabase.auth.getSession();
+  return { response, signedIn: Boolean(session) };
 }

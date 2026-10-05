@@ -6,11 +6,11 @@ const ADMIN_SEEN_COOKIE = "mm_admin_seen";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const { response, user } = await updateSession(request);
+  const { response, signedIn } = await updateSession(request);
 
   // Signed-in area guards (cheap redirect; pages re-check on the server).
   const needsLogin = ["/account", "/checkout", "/orders", "/wishlist"].some((p) => pathname === p || pathname.startsWith(p + "/"));
-  if (needsLogin && !user) {
+  if (needsLogin && !signedIn) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
-    if (!user) {
+    if (!signedIn) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/login";
       url.search = "";
