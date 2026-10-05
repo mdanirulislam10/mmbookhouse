@@ -151,6 +151,28 @@ export async function notifyOwner(event: OwnerEvent, data: Omit<OwnerContext, "s
   if (wa) await enqueue("whatsapp", wa, `owner_${event}`, { ...base, wa: [s.name, ctx.orderNo ?? "-", r.message, ctx.url] }, switches);
 }
 
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** Plain e-mail through the outbox (honours the e-mail on/off switch). */
+async function sendPlainEmail(to: string, template: string, subject: string, lines: string[], link?: { label: string; path: string }): Promise<void> {
+  const switches = await getChannelSwitches();
+  const url = link ? `${publicEnv.siteUrl}${link.path}` : null;
+  const text = [...lines, url ? `${link!.label}: ${url}` : ""].filter(Boolean).join("\n\n");
+  const html = `${lines.map((l) => `<p>${escapeHtml(l).replace(/\n/g, "<br>")}</p>`).join("")}${url ? `<p><a href="${url}">${escapeHtml(link!.label)}</a></p>` : ""}`;
+  await enqueue("email", to, template, { event: template, subject, text, html }, switches);
+}
+
+/** Short e-mail to the shop owner about something that needs a look in the admin panel. */
+export async function notifyOwnerText(message: string, path: string): Promise<void> {
+  const s = (await getSettings()).store_profile;
+  if (s.email) await sendPlainEmail(s.email, "owner_text", message, [message], { label: "Open admin panel", path });
+}
+
+/** E-mail to a partner (publisher, author, supplier). Partners may be abroad, so this is bilingual. */
+export async function notifyPartner(to: string, subject: string, lines: string[], path: string): Promise<void> {
+  await sendPlainEmail(to, "partner", subject, lines, { label: "Open / খুলুন", path });
+}
+
 /** Retry queued messages (used by the cron route and the admin "Retry" button). */
 export async function processQueue(limit = 40): Promise<{ sent: number; failed: number; skipped: number }> {
   const service = createServiceClient();

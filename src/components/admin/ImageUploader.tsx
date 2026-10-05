@@ -25,12 +25,12 @@ async function shrink(file: File, maxSide: number): Promise<Blob> {
   return blob;
 }
 
-async function upload(file: File, folder: string): Promise<string> {
+async function upload(file: File, folder: string, endpoint: string): Promise<string> {
   const blob = await shrink(file, 1600);
   const form = new FormData();
   form.append("file", new File([blob], "image.webp", { type: "image/webp" }));
   form.append("folder", folder);
-  const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+  const res = await fetch(endpoint, { method: "POST", body: form });
   const json = (await res.json()) as { url?: string; error?: string };
   if (!res.ok || !json.url) throw new Error(json.error ?? "UPLOAD_FAILED");
   return json.url;
@@ -43,6 +43,7 @@ export function ImageUploader({
   max = 1,
   label,
   aspect = "aspect-[3/4]",
+  endpoint = "/api/admin/upload",
 }: {
   folder: "covers" | "gallery" | "previews" | "banners" | "categories";
   value: string[];
@@ -50,6 +51,8 @@ export function ImageUploader({
   max?: number;
   label: string;
   aspect?: string;
+  /** Upload route; partners use /api/partner/upload. */
+  endpoint?: string;
 }) {
   const { t } = useT();
   const toast = useToast();
@@ -61,7 +64,7 @@ export function ImageUploader({
     setBusy(true);
     try {
       const next = [...value];
-      for (const f of Array.from(files).slice(0, max - value.length)) next.push(await upload(f, folder));
+      for (const f of Array.from(files).slice(0, max - value.length)) next.push(await upload(f, folder, endpoint));
       onChange(next);
     } catch (e) {
       toast.error(t("admin.upload.failed"));

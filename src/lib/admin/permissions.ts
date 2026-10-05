@@ -11,13 +11,14 @@ export type Area =
   | "customers"
   | "reports"
   | "enquiries"
+  | "partners"
   | "settings"
   | "staff"
   | "backups"
   | "audit";
 
 const MATRIX: Record<StaffRole, Area[]> = {
-  super_admin: ["dashboard", "orders", "books", "inventory", "catalog", "marketing", "reviews", "customers", "reports", "enquiries", "settings", "staff", "backups", "audit"],
+  super_admin: ["dashboard", "orders", "books", "inventory", "catalog", "marketing", "reviews", "customers", "reports", "enquiries", "partners", "settings", "staff", "backups", "audit"],
   inventory_manager: ["dashboard", "books", "inventory", "catalog", "reviews"],
   dispatch_staff: ["dashboard", "orders"],
 };

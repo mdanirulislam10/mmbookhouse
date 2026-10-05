@@ -26,6 +26,7 @@ export async function Footer() {
             <li><Link className="hover:text-white hover:underline" href="/bestsellers">{t("nav.bestsellers")}</Link></li>
             <li><Link className="hover:text-white hover:underline" href="/new-arrivals">{t("nav.newArrivals")}</Link></li>
             <li><Link className="hover:text-white hover:underline" href="/bulk-order">{t("nav.bulkOrders")}</Link></li>
+            <li><Link className="hover:text-white hover:underline" href="/partner">{t("partner.nav")}</Link></li>
           </ul>
         </div>
         <div>
