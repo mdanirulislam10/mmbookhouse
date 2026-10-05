@@ -8,8 +8,6 @@ import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n";
 import { InstallPrompt } from "@/components/layout/Pwa";
 import { Wrench } from "lucide-react";
-import { AssistantChat } from "@/components/assistant/AssistantChat";
-import { assistantEnabled } from "@/lib/assistant/chat";
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const [settings, staff] = await Promise.all([getSettings(), getStaff()]);
@@ -36,7 +34,6 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <Footer />
       <MobileNav cartCount={cartCount} userName={userName} />
       <InstallPrompt />
-      {assistantEnabled() && <AssistantChat signedIn={Boolean(user)} />}
     </>
   );
 }
