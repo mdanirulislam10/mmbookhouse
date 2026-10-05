@@ -40,20 +40,6 @@ export async function setStock(input: { bookId: string; onHand: number; note?: s
   return { ok: true, data: { onHand: data as number } };
 }
 
-export async function updateStockSettings(input: { bookId: string; threshold: number; rack: string }): Promise<ActionResult> {
-  const parsed = z.object({ bookId: uuid, threshold: z.number().int().min(0).max(10000), rack: z.string().trim().max(40) }).safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT");
-  const staff = await authorize("inventory");
-  if (!staff) return FORBIDDEN;
-  const service = createServiceClient();
-  const a = await service.from("inventory").update({ low_stock_threshold: parsed.data.threshold }).eq("book_id", parsed.data.bookId);
-  if (a.error) return dbError(a.error);
-  const b = await service.from("book_private").update({ rack_location: parsed.data.rack || null }).eq("book_id", parsed.data.bookId);
-  if (b.error) return dbError(b.error);
-  refresh();
-  return { ok: true };
-}
-
 /** Walk-in sale at the shop counter: reduces stock and records a delivered, paid order. */
 export async function posSale(input: {
   items: { bookId: string; qty: number; unitPrice?: number }[];

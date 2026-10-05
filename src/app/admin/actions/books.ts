@@ -111,29 +111,6 @@ export async function saveBook(input: BookInput): Promise<ActionResult<{ id: str
   return res;
 }
 
-export async function setBookStatus(id: string, status: "draft" | "active" | "archived"): Promise<ActionResult> {
-  const parsed = z.object({ id: uuid, status: z.enum(["draft", "active", "archived"]) }).safeParse({ id, status });
-  if (!parsed.success) return fail("INVALID_INPUT");
-  const staff = await authorize("books");
-  if (!staff) return FORBIDDEN;
-  const { error } = await createServiceClient().from("books").update({ status }).eq("id", id);
-  if (error) return dbError(error);
-  await writeAudit(staff, "book.status", "book", id, { after: status });
-  invalidate(id);
-  return { ok: true };
-}
-
-export async function setBookFeatured(id: string, featured: boolean): Promise<ActionResult> {
-  if (!uuid.safeParse(id).success) return fail("INVALID_INPUT");
-  const staff = await authorize("books");
-  if (!staff) return FORBIDDEN;
-  const { error } = await createServiceClient().from("books").update({ is_featured: featured }).eq("id", id);
-  if (error) return dbError(error);
-  await writeAudit(staff, "book.featured", "book", id, { after: featured });
-  invalidate(id);
-  return { ok: true };
-}
-
 export async function bulkPrice(input: { publisherId?: string; categoryId?: string; mode: "discount_pct" | "adjust_pct"; pct: number }): Promise<ActionResult<{ count: number }>> {
   const parsed = z
     .object({ publisherId: uuid.optional(), categoryId: uuid.optional(), mode: z.enum(["discount_pct", "adjust_pct"]), pct: z.number().min(-90).max(100) })

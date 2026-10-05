@@ -104,7 +104,6 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             status={o.status}
             fulfillment={o.fulfillment}
             paymentStatus={o.payment_status}
-            paymentMethod={o.payment_method}
             utr={utr}
             courier={o.courier_name}
             awb={o.awb}

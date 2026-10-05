@@ -62,4 +62,3 @@ export const bookSchema = z
   .refine((b) => b.sale_price <= b.mrp, { message: "PRICE_ABOVE_MRP", path: ["sale_price"] });
 
 export type BookInput = z.input<typeof bookSchema>;
-export type BookData = z.output<typeof bookSchema>;

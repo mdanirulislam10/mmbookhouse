@@ -15,8 +15,4 @@ export function dbError(err: { message?: string; details?: string | null } | nul
   return fail("GENERIC");
 }
 
-export function firstIssue(error: z.ZodError): string {
-  return error.issues[0]?.message ?? "INVALID_INPUT";
-}
-
 export const uuid = z.string().uuid();

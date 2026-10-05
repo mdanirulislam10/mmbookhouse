@@ -47,10 +47,6 @@ export function randomSuffix(len = 5): string {
   return out;
 }
 
-export function clamp(n: number, min: number, max: number) {
-  return Math.min(Math.max(n, min), max);
-}
-
 export function toInt(value: string | string[] | undefined, fallback: number): number {
   const v = Array.isArray(value) ? value[0] : value;
   const n = Number.parseInt(v ?? "", 10);
@@ -65,10 +61,4 @@ export function first(value: string | string[] | undefined): string | undefined 
 export function safeNext(next: string | null | undefined, fallback = "/"): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return fallback;
   return next;
-}
-
-export function maskEmail(email: string): string {
-  const [u, d] = email.split("@");
-  if (!d) return email;
-  return `${u.slice(0, 2)}${"*".repeat(Math.max(u.length - 2, 1))}@${d}`;
 }

@@ -29,7 +29,6 @@ export function OrderActions({
   status,
   fulfillment,
   paymentStatus,
-  paymentMethod,
   utr,
   courier,
   awb,
@@ -39,7 +38,6 @@ export function OrderActions({
   status: OrderStatus;
   fulfillment: "delivery" | "pickup";
   paymentStatus: string;
-  paymentMethod: string;
   utr: string | null;
   courier: string | null;
   awb: string | null;
