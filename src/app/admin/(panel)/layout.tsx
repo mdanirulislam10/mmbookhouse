@@ -7,7 +7,7 @@ import { ROLE_LABEL } from "@/lib/admin/permissions";
 import { rolesFor, type Area } from "@/lib/admin/permissions";
 import { ToastProvider } from "@/components/ui/Toaster";
 
-const AREAS: Area[] = ["dashboard", "orders", "books", "inventory", "catalog", "marketing", "reviews", "customers", "reports", "enquiries", "settings", "staff", "backups", "audit"];
+const AREAS: Area[] = ["dashboard", "orders", "books", "inventory", "catalog", "marketing", "reviews", "customers", "reports", "enquiries", "partners", "settings", "staff", "backups", "audit"];
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();

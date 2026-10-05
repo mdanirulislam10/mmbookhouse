@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { getLang, getT } from "@/lib/i18n/server";
 import { PARTNER_TERMS_VERSION } from "@/lib/validation/partner";
 
@@ -37,9 +39,15 @@ const CONTENT = {
 
 export default async function PartnerTermsPage() {
   const [lang, { t }] = await Promise.all([getLang(), getT()]);
+  const back = (
+    <Link href="/partner" className="link inline-flex items-center gap-1 text-sm">
+      <ArrowLeft size={16} /> {t("partner.backToForm")}
+    </Link>
+  );
   return (
     <article className="container-page max-w-3xl py-6">
-      <h1 className="text-2xl font-bold">{t("partner.termsTitle")}</h1>
+      {back}
+      <h1 className="mt-3 text-2xl font-bold">{t("partner.termsTitle")}</h1>
       <p className="mt-1 text-sm text-slate-500">{t("partner.termsVersion", { v: PARTNER_TERMS_VERSION })}</p>
       {CONTENT[lang].map(([h, p], i) => (
         <section key={h} className="mt-5">
@@ -49,6 +57,7 @@ export default async function PartnerTermsPage() {
           <p className="mt-1 leading-relaxed text-slate-700">{p}</p>
         </section>
       ))}
+      <div className="mt-8">{back}</div>
     </article>
   );
 }
