@@ -22,6 +22,18 @@ export async function applyAsPartner(input: PartnerApplicationInput): Promise<Ac
   return { ok: true };
 }
 
+/** A partner keeps their contact details up to date (name, type and status are managed by the shop). */
+export async function updatePartnerProfile(input: Omit<PartnerApplicationInput, "terms" | "name" | "kind">): Promise<ActionResult> {
+  const parsed = partnerApplicationSchema.omit({ terms: true, name: true, kind: true }).safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "INVALID_INPUT");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_my_partner_profile", { p: parsed.data });
+  if (error) return dbError(error);
+  revalidatePath("/partner/profile");
+  revalidatePath("/admin/partners");
+  return { ok: true };
+}
+
 /** An approved partner submits a book for the shop to review. */
 export async function submitPartnerBook(input: PartnerBookInput): Promise<ActionResult> {
   const parsed = partnerBookSchema.safeParse(input);

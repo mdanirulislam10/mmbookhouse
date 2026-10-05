@@ -13,6 +13,12 @@ export function formatINR(value: number | string | null | undefined): string {
   return inr.format(Number.isFinite(n) ? n : 0);
 }
 
+/** Amount in any currency: rupees as ₹, others with their code (partners may be paid abroad). */
+export function formatMoney(currency: string, value: number | string): string {
+  if (currency === "INR") return formatINR(value);
+  return `${currency} ${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
 export function formatDate(value: string | Date | null | undefined, lang: "bn" | "en" = "en", withTime = false): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;

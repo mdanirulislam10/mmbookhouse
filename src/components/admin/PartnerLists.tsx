@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { approveSubmission, rejectSubmission, reviewPartner } from "@/app/admin/actions/partners";
+import { useState } from "react";
+import { approveSubmission, deletePayout, recordPayout, rejectSubmission, reviewPartner } from "@/app/admin/actions/partners";
 import { useRun } from "@/components/admin/useRun";
 import { Empty, Panel } from "@/components/admin/ui";
 import { Badge } from "@/components/ui/Badge";
 import { BookCover } from "@/components/ui/BookCover";
 import { Button } from "@/components/ui/Button";
+import { Field, Input, Select } from "@/components/ui/Field";
+import { totalsByCurrency, type PayoutRow, type SalesRow } from "@/lib/partner-accounts";
+import { CURRENCIES } from "@/lib/validation/partner";
 import { useT } from "@/lib/i18n/client";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatMoney } from "@/lib/utils";
 
 export interface PartnerItem {
   id: string;
@@ -28,6 +32,131 @@ export interface PartnerItem {
   status: "pending" | "approved" | "rejected" | "suspended";
   admin_note: string | null;
   created_at: string;
+  account?: { sales: SalesRow[]; payouts: PayoutRow[] };
+}
+
+/** Earned / paid / due for one partner, the payments made, and a form to record a new payment. */
+function PartnerAccount({ partnerId, account }: { partnerId: string; account: { sales: SalesRow[]; payouts: PayoutRow[] } }) {
+  const { t, lang } = useT();
+  const { run, pending } = useRun();
+  const [open, setOpen] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const blank = { amount: "", currency: account.sales[0]?.currency ?? "INR", paidOn: today, method: "", reference: "", note: "" };
+  const [f, setF] = useState(blank);
+  const set = (k: keyof typeof blank) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
+  const totals = totalsByCurrency(account.sales, account.payouts);
+  const sold = account.sales.reduce((n, s) => n + Number(s.sold), 0);
+
+  return (
+    <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-left">
+        <b>{t("admin.partners.account")}</b>
+        <span>
+          {t("partner.stats.sold")}: {sold}
+        </span>
+        {totals.map((c) => (
+          <span key={c.currency}>
+            {t("partner.sales.due")}: <b className={c.balance > 0 ? "text-emerald-700" : ""}>{formatMoney(c.currency, c.balance)}</b>
+          </span>
+        ))}
+        <span className="ml-auto text-xs text-slate-500">{open ? "▲" : "▼"}</span>
+      </button>
+      {open ? (
+        <div className="mt-3 space-y-3">
+          {account.sales.length ? (
+            <ul className="space-y-0.5">
+              {account.sales.map((s) => (
+                <li key={s.book_id} className="flex flex-wrap justify-between gap-2">
+                  <span>{s.title}</span>
+                  <span className="text-slate-600">
+                    {s.sold} × {formatMoney(s.currency, s.supply_price)} = <b>{formatMoney(s.currency, s.earned)}</b>
+                    {s.pending ? ` (+${s.pending} ${t("partner.sales.pending")})` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-slate-500">{t("partner.sales.none")}</p>
+          )}
+          {totals.map((c) => (
+            <p key={c.currency} className="flex flex-wrap gap-x-4">
+              <span>
+                {t("partner.sales.earned")}: {formatMoney(c.currency, c.earned)}
+              </span>
+              <span>
+                {t("partner.sales.paid")}: {formatMoney(c.currency, c.paid)}
+              </span>
+              <span>
+                {t("partner.sales.due")}: <b>{formatMoney(c.currency, c.balance)}</b>
+              </span>
+            </p>
+          ))}
+          {account.payouts.length ? (
+            <ul className="divide-y rounded border bg-white">
+              {account.payouts.map((p) => (
+                <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5">
+                  <span>
+                    {formatDate(p.paid_on, lang)} · <b>{formatMoney(p.currency, p.amount)}</b>
+                    {p.method ? ` · ${p.method}` : ""}
+                    {p.reference ? ` · ${p.reference}` : ""}
+                    {p.note ? <span className="block text-xs text-slate-500">{p.note}</span> : null}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    className="text-xs text-red-600 hover:underline"
+                    onClick={() => {
+                      if (window.confirm(t("admin.partners.confirmDelete"))) run(() => deletePayout(p.id));
+                    }}
+                  >
+                    {t("admin.partners.deletePayout")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <form
+            className="grid gap-2 rounded border bg-white p-3 sm:grid-cols-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              run(() => recordPayout({ partnerId, amount: Number(f.amount), currency: f.currency, paidOn: f.paidOn, method: f.method, reference: f.reference, note: f.note }), { onOk: () => setF(blank) });
+            }}
+          >
+            <p className="font-medium sm:col-span-3">{t("admin.partners.recordPayout")}</p>
+            <div className="grid grid-cols-[1fr_6rem] gap-2">
+              <Field label={t("admin.partners.amount")} htmlFor={`pa-${partnerId}`}>
+                <Input id={`pa-${partnerId}`} type="number" required min={0.01} step="0.01" value={f.amount} onChange={set("amount")} />
+              </Field>
+              <Field label={t("partner.book.currency")} htmlFor={`pc-${partnerId}`}>
+                <Select id={`pc-${partnerId}`} value={f.currency} onChange={set("currency")}>
+                  {CURRENCIES.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <Field label={t("admin.partners.paidOn")} htmlFor={`pd-${partnerId}`}>
+              <Input id={`pd-${partnerId}`} type="date" required max={today} value={f.paidOn} onChange={set("paidOn")} />
+            </Field>
+            <Field label={t("admin.partners.method")} htmlFor={`pm-${partnerId}`}>
+              <Input id={`pm-${partnerId}`} maxLength={60} value={f.method} onChange={set("method")} />
+            </Field>
+            <Field label={t("admin.partners.reference")} htmlFor={`pr-${partnerId}`}>
+              <Input id={`pr-${partnerId}`} maxLength={120} value={f.reference} onChange={set("reference")} />
+            </Field>
+            <Field label={t("admin.partners.note")} htmlFor={`pn-${partnerId}`} className="sm:col-span-2">
+              <Input id={`pn-${partnerId}`} maxLength={500} value={f.note} onChange={set("note")} />
+            </Field>
+            <div className="sm:col-span-3">
+              <Button type="submit" size="sm" disabled={pending}>
+                {t("admin.partners.recordPayout")}
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export interface SubmissionItem {
@@ -91,6 +220,7 @@ export function PartnerApplications({ items }: { items: PartnerItem[] }) {
             <p className="whitespace-pre-line text-slate-700">{p.catalogue}</p>
             <p className="text-xs text-slate-500">{t("admin.partners.termsAccepted", { v: p.terms_version, date: formatDate(p.terms_accepted_at, lang) })}</p>
             {p.admin_note ? <p className="text-xs text-red-700">{t("partner.reason", { note: p.admin_note })}</p> : null}
+            {p.account ? <PartnerAccount partnerId={p.id} account={p.account} /> : null}
             <div className="flex flex-wrap gap-2 pt-1">
               {p.status !== "approved" ? (
                 <Button size="sm" disabled={pending} onClick={() => run(() => reviewPartner(p.id, "approved"))}>

@@ -1,20 +1,79 @@
 import type { Metadata } from "next";
-import { BookOpenCheck, Clock, ShieldAlert, XCircle } from "lucide-react";
+import { Clock, XCircle } from "lucide-react";
 import { getSessionUser } from "@/lib/data/session";
+import { getMyPartner, getMyStatement, type MyPartner } from "@/lib/data/partner";
+import { totalsByCurrency } from "@/lib/partner-accounts";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { LinkButton } from "@/components/ui/Button";
+import { PartnerShell } from "@/components/partner/PartnerShell";
+import { formatMoney } from "@/lib/utils";
 import { PartnerForm, type PartnerFormValues } from "./PartnerForm";
 
-export const metadata: Metadata = { title: "Become a partner: publishers, authors & suppliers" };
+export const metadata: Metadata = { title: "Partners: publishers, authors & suppliers" };
 export const dynamic = "force-dynamic";
+
+
+/** Home of an approved (or suspended) partner. */
+async function Overview({ partner }: { partner: MyPartner }) {
+  const { t } = await getT();
+  const supabase = await createClient();
+  const [{ data: subs }, { sales, payouts }] = await Promise.all([supabase.from("partner_submissions").select("status").eq("partner_id", partner.id), getMyStatement()]);
+  const count = (s: string) => (subs ?? []).filter((x) => x.status === s).length;
+  const sold = sales.reduce((n, r) => n + Number(r.sold), 0);
+  const pending = sales.reduce((n, r) => n + Number(r.pending), 0);
+  const totals = totalsByCurrency(sales, payouts);
+
+  const stats = [
+    { label: t("partner.stats.submitted"), value: String(subs?.length ?? 0) },
+    { label: t("partner.stats.accepted"), value: String(count("approved")) },
+    { label: t("partner.stats.inReview"), value: String(count("pending")) },
+    { label: t("partner.stats.sold"), value: String(sold), hint: pending ? t("partner.stats.inProcess", { n: pending }) : undefined },
+  ];
+
+  return (
+    <PartnerShell partner={partner} active="overview">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {stats.map((s) => (
+          <div key={s.label} className="card p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{s.label}</p>
+            <p className="mt-1 text-2xl font-bold">{s.value}</p>
+            {s.hint ? <p className="text-xs text-slate-500">{s.hint}</p> : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="card mt-4 p-4">
+        <h2 className="font-semibold">{t("partner.sales.balance")}</h2>
+        {totals.length ? (
+          <ul className="mt-2 space-y-1 text-sm">
+            {totals.map((c) => (
+              <li key={c.currency} className="flex flex-wrap gap-x-4">
+                <span>{t("partner.sales.earned")}: <b>{formatMoney(c.currency, c.earned)}</b></span>
+                <span>{t("partner.sales.paid")}: <b>{formatMoney(c.currency, c.paid)}</b></span>
+                <span>{t("partner.sales.due")}: <b className={c.balance > 0 ? "text-emerald-700" : ""}>{formatMoney(c.currency, c.balance)}</b></span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-sm text-slate-600">{t("partner.sales.none")}</p>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {partner.status === "approved" ? <LinkButton href="/partner/books">{t("partner.books.new")}</LinkButton> : null}
+        <LinkButton href="/partner/sales" variant="secondary">
+          {t("partner.tab.sales")}
+        </LinkButton>
+      </div>
+    </PartnerShell>
+  );
+}
 
 export default async function PartnerPage() {
   const { t } = await getT();
-  const user = await getSessionUser();
-  const partner = user
-    ? (await (await createClient()).from("partners").select("kind, name, contact_person, email, phone, country, address, website, tax_id, catalogue, status, admin_note").eq("user_id", user.id).maybeSingle()).data
-    : null;
+  const [user, partner] = await Promise.all([getSessionUser(), getMyPartner()]);
+  if (partner && (partner.status === "approved" || partner.status === "suspended")) return <Overview partner={partner} />;
 
   const initial: PartnerFormValues = {
     kind: partner?.kind ?? "publisher",
@@ -49,22 +108,9 @@ export default async function PartnerPage() {
             {t("partner.loginButton")}
           </LinkButton>
         </div>
-      ) : partner?.status === "approved" ? (
-        <div className="card mt-6 flex flex-wrap items-center gap-3 p-5 text-emerald-800">
-          <BookOpenCheck className="shrink-0" />
-          <p className="flex-1">{t("partner.status.approved")}</p>
-          <LinkButton href="/partner/books">{t("partner.goBooks")}</LinkButton>
-        </div>
       ) : partner?.status === "pending" ? (
         <div className="card mt-6 flex items-center gap-3 p-5 text-amber-800">
           <Clock className="shrink-0" /> {t("partner.status.pending")}
-        </div>
-      ) : partner?.status === "suspended" ? (
-        <div className="card mt-6 p-5 text-red-800">
-          <p className="flex items-center gap-2">
-            <ShieldAlert className="shrink-0" /> {t("partner.status.suspended")}
-          </p>
-          {partner.admin_note ? <p className="mt-1 text-sm">{t("partner.reason", { note: partner.admin_note })}</p> : null}
         </div>
       ) : (
         <>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShoppingCart, Heart, ChevronDown, LogOut, Package, User, MapPin, LayoutDashboard } from "lucide-react";
+import { ShoppingCart, Heart, ChevronDown, LogOut, Package, User, MapPin, LayoutDashboard, Handshake } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { getSettings } from "@/lib/data/settings";
 import { getCategoryTree } from "@/lib/data/catalog";
@@ -10,11 +10,14 @@ import { SearchBox } from "./SearchBox";
 import { CategoryMenu } from "./CategoryMenu";
 import { PincodeBadge } from "./PincodeBadge";
 import { Logo } from "./Logo";
+import { getMyPartner } from "@/lib/data/partner";
+import { greetingKey } from "@/lib/i18n/greeting";
 import { pick } from "@/lib/i18n";
 
 export async function Header() {
   const { t, lang } = await getT();
-  const [settings, tree, cartCount, user, staff] = await Promise.all([getSettings(), getCategoryTree(), getCartCount(), getSessionUser(), getStaff()]);
+  const [settings, tree, cartCount, user, staff, partner] = await Promise.all([getSettings(), getCategoryTree(), getCartCount(), getSessionUser(), getStaff(), getMyPartner()]);
+  const greet = t(greetingKey());
   const notice = settings.notice_bar;
   const noticeText = pick(lang, notice.text, notice.text_bn);
   const firstName = (user?.fullName ?? user?.email ?? "").split(/[ @]/)[0];
@@ -55,7 +58,7 @@ export async function Header() {
 
             <div className="group relative hidden md:block">
               <Link href={user ? "/account" : "/login"} className="flex flex-col rounded px-2 py-1 text-left text-xs leading-tight hover:outline hover:outline-1 hover:outline-white/70">
-                <span className="text-slate-300">{user ? t("nav.hello", { name: firstName }) : t("nav.helloGuest")}</span>
+                <span className="text-slate-300">{user ? t("nav.hello", { greet, name: firstName }) : t("nav.helloGuest", { greet })}</span>
                 <span className="flex items-center gap-0.5 text-sm font-semibold">
                   {t("nav.accountLists")} <ChevronDown size={14} />
                 </span>
@@ -68,6 +71,7 @@ export async function Header() {
                       <MenuLink href="/account/orders" icon={<Package size={16} />} label={t("nav.orders")} />
                       <MenuLink href="/account/wishlist" icon={<Heart size={16} />} label={t("nav.wishlist")} />
                       <MenuLink href="/account/addresses" icon={<MapPin size={16} />} label={t("account.addresses")} />
+                      {partner ? <MenuLink href="/partner" icon={<Handshake size={16} />} label={t("partner.panel")} /> : null}
                       {staff ? <MenuLink href="/admin" icon={<LayoutDashboard size={16} />} label={t("nav.adminPanel")} /> : null}
                       <form action="/auth/signout" method="post" className="mt-1 border-t pt-1">
                         <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left hover:bg-slate-100">

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin, Package, Heart } from "lucide-react";
+import { MapPin, Package, Heart, Handshake } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { getProfile, requireUser } from "@/lib/data/session";
 import { getMyOrders } from "@/lib/data/account";
+import { getMyPartner } from "@/lib/data/partner";
 import { AccountShell } from "@/components/account/AccountShell";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { NotifyPrefs } from "@/components/account/NotifyPrefs";
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const user = await requireUser("/account");
   const { t, lang } = await getT();
-  const [profile, orders, authUser] = await Promise.all([getProfile(), getMyOrders(3), createClient().then((c) => c.auth.getUser())]);
+  const [profile, orders, authUser, partner] = await Promise.all([getProfile(), getMyOrders(3), createClient().then((c) => c.auth.getUser()), getMyPartner()]);
   const nm = ((authUser.data.user?.user_metadata?.notify ?? {}) as Partial<{ email: boolean; sms: boolean; whatsapp: boolean }>);
   const prefs = { email: nm.email ?? true, sms: nm.sms ?? true, whatsapp: nm.whatsapp ?? true };
 
@@ -25,6 +26,7 @@ export default async function AccountPage() {
     { href: "/account/orders", icon: Package, title: t("account.orders"), text: t("account.ordersText") },
     { href: "/account/addresses", icon: MapPin, title: t("account.addresses"), text: t("account.addressesText") },
     { href: "/account/wishlist", icon: Heart, title: t("account.wishlist"), text: t("account.wishlistText") },
+    ...(partner ? [{ href: "/partner", icon: Handshake, title: t("partner.panel"), text: t(`partner.status.${partner.status}`) }] : []),
   ];
 
   return (

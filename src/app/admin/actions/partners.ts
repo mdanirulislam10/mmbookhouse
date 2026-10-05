@@ -103,6 +103,55 @@ export async function approveSubmission(id: string): Promise<ActionResult<{ book
   return { ok: true, data: { bookId: res.data!.id } };
 }
 
+const payoutSchema = z.object({
+  partnerId: uuid,
+  amount: z.number().positive().max(100_000_000),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "DATE_INVALID"),
+  method: z.string().trim().max(60).optional(),
+  reference: z.string().trim().max(120).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
+/** Record a payment made to a partner; it appears in their statement. */
+export async function recordPayout(input: z.input<typeof payoutSchema>): Promise<ActionResult> {
+  const parsed = payoutSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "INVALID_INPUT");
+  const staff = await authorize("partners");
+  if (!staff) return FORBIDDEN;
+  const v = parsed.data;
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("partner_payouts")
+    .insert({ partner_id: v.partnerId, amount: v.amount, currency: v.currency, paid_on: v.paidOn, method: v.method || null, reference: v.reference || null, note: v.note || null, created_by: staff.userId })
+    .select("id, partners(email, name)")
+    .single();
+  if (error) return dbError(error);
+  await writeAudit(staff, "partner.payout", "partner", v.partnerId, { after: { amount: v.amount, currency: v.currency, paid_on: v.paidOn, reference: v.reference } });
+  refresh();
+  revalidatePath("/partner/sales");
+  const p = data.partners as unknown as { email: string; name: string } | null;
+  if (p?.email) {
+    const amount = `${v.currency} ${v.amount}`;
+    defer(() => notifyPartner(p.email, "Payment recorded / পেমেন্ট দেওয়া হয়েছে", [`A payment of ${amount} to ${p.name} was recorded on ${v.paidOn}${v.reference ? ` (ref. ${v.reference})` : ""}.`, `${p.name}-কে ${amount} পেমেন্ট ${v.paidOn} তারিখে দেওয়া হয়েছে${v.reference ? ` (রেফারেন্স ${v.reference})` : ""}।`], "/partner/sales"));
+  }
+  return { ok: true };
+}
+
+/** Remove a wrongly entered payment (kept in the audit log). */
+export async function deletePayout(id: string): Promise<ActionResult> {
+  if (!uuid.safeParse(id).success) return fail("INVALID_INPUT");
+  const staff = await authorize("partners");
+  if (!staff) return FORBIDDEN;
+  const { data, error } = await createServiceClient().from("partner_payouts").delete().eq("id", id).select("partner_id, amount, currency, paid_on, reference").maybeSingle();
+  if (error) return dbError(error);
+  if (!data) return fail("NOT_FOUND");
+  await writeAudit(staff, "partner.payout_delete", "partner", data.partner_id as string, { before: data });
+  refresh();
+  revalidatePath("/partner/sales");
+  return { ok: true };
+}
+
 export async function rejectSubmission(id: string, adminNote: string): Promise<ActionResult> {
   const parsed = z.object({ id: uuid, note: z.string().trim().min(3).max(1000) }).safeParse({ id, note: adminNote });
   if (!parsed.success) return fail("NOTE_REQUIRED");

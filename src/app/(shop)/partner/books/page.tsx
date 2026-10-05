@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/data/session";
+import { getMyPartner } from "@/lib/data/partner";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { BookCover } from "@/components/ui/BookCover";
+import { PartnerShell } from "@/components/partner/PartnerShell";
 import { cn, formatDate } from "@/lib/utils";
 import { SubmitBookForm } from "./SubmitBookForm";
 
@@ -13,12 +15,11 @@ export const dynamic = "force-dynamic";
 const TONE = { pending: "bg-amber-100 text-amber-800", approved: "bg-emerald-100 text-emerald-800", rejected: "bg-red-100 text-red-800" } as const;
 
 export default async function PartnerBooksPage() {
-  const user = await requireUser("/partner/books");
+  await requireUser("/partner/books");
   const { t, lang } = await getT();
-  const supabase = await createClient();
-  const { data: partner } = await supabase.from("partners").select("id, name, kind, status").eq("user_id", user.id).maybeSingle();
+  const partner = await getMyPartner();
 
-  if (partner?.status !== "approved") {
+  if (!partner || (partner.status !== "approved" && partner.status !== "suspended")) {
     return (
       <div className="container-page max-w-2xl py-6">
         <h1 className="text-2xl font-bold">{t("partner.books.title")}</h1>
@@ -32,7 +33,7 @@ export default async function PartnerBooksPage() {
     );
   }
 
-  const { data: books } = await supabase
+  const { data: books } = await (await createClient())
     .from("partner_submissions")
     .select("id, title, title_bn, authors, mrp, supply_price, currency, cover_url, status, admin_note, created_at")
     .eq("partner_id", partner.id)
@@ -40,15 +41,14 @@ export default async function PartnerBooksPage() {
     .limit(200);
 
   return (
-    <div className="container-page max-w-4xl py-6">
-      <h1 className="text-2xl font-bold">{t("partner.books.title")}</h1>
-      <p className="mt-1 text-slate-600">
-        {partner.name} · {t(`partner.kind.${partner.kind as "publisher"}`)}
-      </p>
-      <p className="mt-2 text-sm text-slate-600">{t("partner.books.lead")}</p>
-
-      <h2 className="mt-6 text-lg font-semibold">{t("partner.books.new")}</h2>
-      <SubmitBookForm defaultPublisher={partner.kind === "publisher" ? partner.name : ""} />
+    <PartnerShell partner={partner} active="books">
+      {partner.status === "approved" ? (
+        <>
+          <h2 className="text-lg font-semibold">{t("partner.books.new")}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t("partner.books.lead")}</p>
+          <SubmitBookForm defaultPublisher={partner.kind === "publisher" ? partner.name : ""} />
+        </>
+      ) : null}
 
       <h2 className="mt-8 text-lg font-semibold">{t("partner.books.title")}</h2>
       {books?.length ? (
@@ -75,6 +75,6 @@ export default async function PartnerBooksPage() {
       ) : (
         <p className="mt-3 text-slate-600">{t("partner.books.none")}</p>
       )}
-    </div>
+    </PartnerShell>
   );
 }

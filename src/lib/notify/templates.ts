@@ -43,7 +43,7 @@ export interface Rendered {
 
 const T = {
   bn: {
-    hello: (n: string) => `নমস্কার ${n},`,
+    hello: (n: string) => `প্রিয় ${n},`,
     thanks: "আমাদের থেকে কেনাকাটার জন্য ধন্যবাদ।",
     track: "অর্ডার দেখুন",
     order: "অর্ডার",
