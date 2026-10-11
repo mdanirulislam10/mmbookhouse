@@ -57,13 +57,17 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: "latest" asks the GitHub API on every run and fails when the shared runner IP hits its rate limit.
+          version: 2.120.0
 
       - name: Create encrypted backup and upload to Google Drive
+        id: backup
         run: node scripts/backup_to_google_drive.mjs
 
+      # A manual job is always closed here. A scheduled run only needs a row when it failed before the
+      # backup script started (the script records its own failures).
       - name: Report an early worker failure to the admin panel
-        if: ${{ failure() && inputs.job_id != '' }}
+        if: ${{ failure() && (inputs.job_id != '' || steps.backup.outcome == 'skipped') }}
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: node scripts/report_backup_failure.mjs
